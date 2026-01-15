@@ -28,22 +28,22 @@
     Force installation even if package is already installed (reinstall).
 
 .EXAMPLE
-    .\Install-AppxBackup.ps1 -PackagePath "C:\Backups\MyApp.appx"
+    Install-AppxBackup -PackagePath "C:\Backups\MyApp.appx"
     
     Installs MyApp.appx and automatically finds MyApp.cer in the same directory.
 
 .EXAMPLE
-    .\Install-AppxBackup.ps1 -PackagePath "C:\Backups\MyApp.appx" -CertificatePath "C:\Certs\MyApp.cer"
+    Install-AppxBackup -PackagePath "C:\Backups\MyApp.appx" -CertificatePath "C:\Certs\MyApp.cer"
     
     Installs MyApp.appx using the specified certificate file.
 
 .EXAMPLE
-    .\Install-AppxBackup.ps1 -PackagePath "C:\Backups\MyApp.appx" -CertStoreLocation CurrentUser
+    Install-AppxBackup -PackagePath "C:\Backups\MyApp.appx" -CertStoreLocation CurrentUser
     
     Installs for current user only (no Administrator required).
 
 .EXAMPLE
-    .\Install-AppxBackup.ps1 -PackagePath "C:\Backups\MyApp.appx" -SkipCertificate
+    Install-AppxBackup -PackagePath "C:\Backups\MyApp.appx" -SkipCertificate
     
     Installs package without installing certificate (assumes already trusted).
 
@@ -53,31 +53,32 @@
     Requires: PowerShell 5.1+, Windows 10 1809+
 #>
 
-[CmdletBinding(SupportsShouldProcess)]
-param(
-    [Parameter(Mandatory, Position = 0, ValueFromPipeline, ValueFromPipelineByPropertyName)]
-    [Alias('Path', 'AppxPath', 'PackageFile')]
-    [ValidateNotNullOrEmpty()]
-    [ValidateScript({
-        if (-not (Test-Path -LiteralPath $_)) {
-            throw "Package file not found: $_"
-        }
-        if ($_ -notmatch '\.(appx|msix|appxbundle|msixbundle)$') {
-            throw "File must be an APPX/MSIX package (.appx, .msix, .appxbundle, .msixbundle)"
-        }
-        $true
-    })]
-    [string]$PackagePath,
+function Install-AppxBackup {
+    [CmdletBinding(SupportsShouldProcess)]
+    param(
+        [Parameter(Mandatory, Position = 0, ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [Alias('Path', 'AppxPath', 'PackageFile')]
+        [ValidateNotNullOrEmpty()]
+        [ValidateScript({
+            if (-not (Test-Path -LiteralPath $_)) {
+                throw "Package file not found: $_"
+            }
+            if ($_ -notmatch '\.(appx|msix|appxbundle|msixbundle)$') {
+                throw "File must be an APPX/MSIX package (.appx, .msix, .appxbundle, .msixbundle)"
+            }
+            $true
+        })]
+        [string]$PackagePath,
 
-    [Parameter()]
-    [Alias('Cert', 'CertPath', 'Certificate')]
-    [ValidateScript({
-        if ($_ -and -not (Test-Path -LiteralPath $_)) {
-            throw "Certificate file not found: $_"
-        }
-        if ($_ -and $_ -notmatch '\.cer$') {
-            throw "Certificate file must be a .cer file"
-        }
+        [Parameter()]
+        [Alias('Cert', 'CertPath', 'Certificate')]
+        [ValidateScript({
+            if ($_ -and -not (Test-Path -LiteralPath $_)) {
+                throw "Certificate file not found: $_"
+            }
+            if ($_ -and $_ -notmatch '\.cer$') {
+                throw "Certificate file must be a .cer file"
+            }
         $true
     })]
     [string]$CertificatePath,
@@ -271,3 +272,5 @@ process {
 end {
     # Cleanup
 }
+
+} # End function Install-AppxBackup

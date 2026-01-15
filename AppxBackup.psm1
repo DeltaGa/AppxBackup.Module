@@ -95,6 +95,7 @@ Write-Verbose "Loading public functions..."
 
 $publicFiles = @(
     'Backup-AppxPackage.ps1',
+    'Install-AppxBackup.ps1',
     'New-AppxBackupCertificate.ps1',
     'Test-AppxPackageIntegrity.ps1',
     'Get-AppxBackupInfo.ps1',
@@ -129,6 +130,7 @@ foreach ($file in $publicFiles) {
 # Export functions (defined in manifest, but explicit export for clarity)
 $functionsToExport = @(
     'Backup-AppxPackage',
+    'Install-AppxBackup',
     'New-AppxBackupCertificate',
     'Test-AppxPackageIntegrity',
     'Get-AppxBackupInfo',
