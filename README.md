@@ -382,4 +382,5 @@ When reporting issues, include:
 4. Log file from `$env:TEMP\AppxBackup_*.log`
 
 ---
+
 © 2026 DeltaGa. All rights reserved.

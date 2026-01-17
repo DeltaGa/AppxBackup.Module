@@ -5,7 +5,7 @@
     AppxBackup Module - Enterprise-grade Windows Application Package backup toolkit
 
 .DESCRIPTION
-    Modern replacement for deprecated 2016-era APPX backup solutions.
+    Modern replacement for 2016-era APPX backup solutions.
     Provides comprehensive, secure, and performant package backup/restore capabilities.
 
 .NOTES

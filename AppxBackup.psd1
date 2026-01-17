@@ -32,7 +32,7 @@ This module provides comprehensive functionality for:
 - Validating package integrity and compatibility
 - Automated rollback and error recovery
 
-Replaces deprecated 2016-era tooling with modern PowerShell 7+ native capabilities
+Replaces 2016-era tooling with modern PowerShell 7+ native capabilities
 while maintaining backward compatibility with Windows 10/11 APPX infrastructure.
 
 Key Features:
