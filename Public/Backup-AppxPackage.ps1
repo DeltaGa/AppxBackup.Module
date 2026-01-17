@@ -5,7 +5,7 @@
 .DESCRIPTION
     Enterprise-grade backup solution for Windows application packages (APPX/MSIX).
     
-    This function completely replaces the amateur 2016 implementation with:
+    Features:
     - Native PowerShell certificate management (no external tools required)
     - Comprehensive error handling and validation
     - Progress indication for long-running operations
@@ -74,7 +74,7 @@
     - Administrator privileges for certificate operations
     - Windows 10 1809+ or Windows 11
     
-    Author: CAN (Code Anything Now)
+    Author: DeltaGa
     Version: 2.0.0
 #>
 

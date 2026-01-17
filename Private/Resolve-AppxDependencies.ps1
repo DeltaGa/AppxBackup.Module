@@ -3,7 +3,6 @@
     Resolves and analyzes APPX/MSIX package dependencies including frameworks and resources.
 
 .DESCRIPTION
-    The 2016 implementation completely ignored dependencies.
     This function provides comprehensive dependency analysis.
     
     Capabilities:

@@ -65,7 +65,7 @@
     The certificate is created in the specified store and remains there
     after export. Use Remove-Item to delete from store when no longer needed.
     
-    Author: CAN (Code Anything Now)
+    Author: DeltaGa
     Version: 2.0.0
 #>
 

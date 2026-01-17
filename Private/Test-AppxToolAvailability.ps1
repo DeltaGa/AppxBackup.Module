@@ -3,8 +3,6 @@
     Detects and validates Windows SDK tool availability with intelligent path resolution.
 
 .DESCRIPTION
-    Replaces the hardcoded, obsolete path checking from 2016.
-    
     Features:
     - Multi-version SDK support (Windows 10/11 SDK)
     - Architecture detection (x86, x64, arm64)

@@ -12,13 +12,13 @@
     GUID = 'a3f2c8d1-9b4e-4a7c-8f6d-2e1b9c4a7f3e'
 
     # Author of this module
-    Author = 'CAN (Code Anything Now)'
+    Author = 'DeltaGa'
 
     # Company or vendor of this module
-    CompanyName = 'Elite Systems Engineering'
+    CompanyName = 'DeltaGa Systems Engineering'
 
     # Copyright statement for this module
-    Copyright = '(c) 2026 CAN. All rights reserved.'
+    Copyright = '(c) DeltaGa. All rights reserved.'
 
     # Description of the functionality provided by this module
     Description = @'
@@ -159,7 +159,7 @@ Version 2.0.0 (2026 Complete Rewrite)
 =====================================
 
 BREAKING CHANGES:
-- Complete rewrite from 2016 amateur implementation
+- Complete rewrite from 2016 deprecated implementation
 - Requires PowerShell 5.1+ (7.4+ recommended)
 - Native certificate management (no MakeCert.exe dependency)
 - Modern MSIX support alongside legacy APPX

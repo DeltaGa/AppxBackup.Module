@@ -10,7 +10,7 @@
 
 .NOTES
     Name: AppxBackup
-    Author: CAN (Code Anything Now)
+    Author: DeltaGa
     Version: 2.0.0
     LastModified: 2026-01-13
     

@@ -3,8 +3,6 @@
     Parses APPX/MSIX manifest files with full namespace support and validation.
 
 .DESCRIPTION
-    Replaces the naive XML parsing from 2016 that ignored namespaces.
-    
     Handles:
     - Multiple manifest schema versions (Windows 8.1 through Windows 11)
     - Namespace resolution for all standard APPX namespaces

@@ -1,18 +1,16 @@
 # AppxBackup PowerShell Module v2.0.0
 
-## Enterprise-Grade Windows Application Package Backup & Restoration Toolkit
+## Windows Application Package Backup & Restoration Toolkit
 
-**Author:** CAN (Code Anything Now)  
 **Version:** 2.0.0  
 **Release Date:** January 15, 2026  
-**License:** Enterprise Use  
 **PowerShell:** 5.1+ (7.5+ Recommended)
 
 ---
 
 ## 🎯 Overview
 
-AppxBackup is a **complete 2026 rewrite** of the 2016 amateur APPX backup script, transformed into a production-grade PowerShell module with enterprise capabilities. This toolkit provides **zero-dependency**, **end-to-end** Windows Store/MSIX application backup and restoration.
+AppxBackup is a **complete 2026 rewrite** of the 2016 amateur APPX backup script, transformed into a production-grade PowerShell module. This toolkit provides **zero-dependency**, **end-to-end** Windows Store/MSIX application backup and restoration.
 
 ### Key Capabilities
 
@@ -29,7 +27,7 @@ AppxBackup is a **complete 2026 rewrite** of the 2016 amateur APPX backup script
 
 ## 📊 2016 vs 2026: The Transformation
 
-| Aspect | 2016 Amateur Script | 2026 Enterprise Module |
+| Aspect | 2016 Version | 2026 Version |
 |--------|---------------------|------------------------|
 | **Lines of Code** | 145 lines | 3,259 lines (15 functions) |
 | **Architecture** | Monolithic script | Modular with Public/Private separation |
@@ -44,8 +42,8 @@ AppxBackup is a **complete 2026 rewrite** of the 2016 amateur APPX backup script
 | **Logging** | None | Structured logs with levels, rotation, timestamps |
 | **Dependency Resolution** | Ignored | Recursive dependency graph analysis |
 | **Content_Types.xml** | Assumed present | Auto-generated with 30+ MIME types if missing |
-| **Certificate Installation** | Manual | **NEW:** Automatic installation to Trusted Root |
-| **Installation Script** | None | **NEW:** Standalone `Install-AppxBackup.ps1` |
+| **Certificate Installation** | Manual | Automatic installation to Trusted Root |
+| **Installation Script** | None | Standalone `Install-AppxBackup.ps1` |
 | **MSIX Support** | No | Full MSIX + APPX support |
 | **Pipeline Support** | None | `ValueFromPipeline` on all major functions |
 | **Testing** | None | Unit testable, extensive validation |
@@ -86,13 +84,13 @@ Get-Module AppxBackup
 
 ## 📖 Complete Workflow Example
 
-### Scenario: Backup and Restore TiviMate App
+### Scenario: Backup and Restore WorkMate App
 
 #### Step 1: Backup the Application
 
 ```powershell
 # Find the installed app
-$app = Get-AppxPackage -Name "*TiviMate*"
+$app = Get-AppxPackage -Name "*WorkMate*"
 
 # Create complete backup (package + certificate)
 Backup-AppxPackage -PackagePath $app.InstallLocation -OutputPath "D:\Backups"
@@ -101,7 +99,7 @@ Backup-AppxPackage -PackagePath $app.InstallLocation -OutputPath "D:\Backups"
 **Output:**
 ```
 === Backup-AppxPackage v2.0 ===
-Package: 2242VelocityAppsTeam.TiviMate v7.5.4.0
+Package: 2242AppsTeam.WorkMate v7.5.4.0
 
 [Stage 1/6] Validating inputs...                         ✓
 [Stage 2/6] Creating package...                          ✓ (6.4s, 47.95 MB)
@@ -112,21 +110,21 @@ Package: 2242VelocityAppsTeam.TiviMate v7.5.4.0
 ✓ Certificate installed successfully - package is ready to install
 
 To install the package, run:
-  Install-AppxBackup -PackagePath 'D:\Backups\TiviMate_7.5.4.0_x64.appx'
+  Install-AppxBackup -PackagePath 'D:\Backups\WorkMate_7.5.4.0_x64.appx'
 ```
 
 **Files Created:**
 ```
 D:\Backups\
-├── 2242VelocityAppsTeam.TiviMate_7.5.4.0_x64__v313ts49xh8we.appx  (47.95 MB, signed)
-└── 2242VelocityAppsTeam.TiviMate_7.5.4.0_x64__v313ts49xh8we.cer  (certificate)
+├── 2242AppsTeam.WorkMate_7.5.4.0_x64__v313ts49xh8we.appx  (47.95 MB, signed)
+└── 2242AppsTeam.WorkMate_7.5.4.0_x64__v313ts49xh8we.cer  (certificate)
 ```
 
 #### Step 2: Install on Another Machine
 
 ```powershell
 # Single command - auto-detects certificate
-Install-AppxBackup -PackagePath "D:\Backups\TiviMate_7.5.4.0_x64.appx"
+Install-AppxBackup -PackagePath "D:\Backups\WorkMate_7.5.4.0_x64.appx"
 ```
 
 **Output:**
@@ -134,8 +132,8 @@ Install-AppxBackup -PackagePath "D:\Backups\TiviMate_7.5.4.0_x64.appx"
 === APPX Package Installation Script ===
 
 [1/3] Package Analysis
-  Package: TiviMate_7.5.4.0_x64.appx
-  Certificate: Auto-detected (TiviMate_7.5.4.0_x64.cer)
+  Package: WorkMate_7.5.4.0_x64.appx
+  Certificate: Auto-detected (WorkMate_7.5.4.0_x64.cer)
 
 [2/3] Certificate Installation
   Target Store: Cert:\LocalMachine\Root
@@ -145,7 +143,7 @@ Install-AppxBackup -PackagePath "D:\Backups\TiviMate_7.5.4.0_x64.appx"
 [3/3] Package Installation
   Installing package...
   Status: Installed successfully
-  Name: 2242VelocityAppsTeam.TiviMate
+  Name: 2242AppsTeam.WorkMate
   Version: 7.5.4.0
 
 === Installation Complete ===
@@ -160,7 +158,7 @@ Install-AppxBackup -PackagePath "D:\Backups\TiviMate_7.5.4.0_x64.appx"
 | Function | Description | Status |
 |----------|-------------|--------|
 | **`Backup-AppxPackage`** | Complete backup with cert creation and signing | ✅ Production Ready |
-| **`Install-AppxBackup`** | Standalone installation with auto-cert handling | ✅ **NEW in v2.0** |
+| **`Install-AppxBackup`** | Standalone installation with auto-cert handling | ✅ Production Ready |
 | **`New-AppxBackupCertificate`** | Create self-signed certificates (4096-bit RSA) | ✅ Production Ready |
 | **`Restore-AppxPackage`** | Restore from backup with dependency resolution | ✅ Production Ready |
 | **`Get-AppxBackupInfo`** | Analyze backup packages without installing | ✅ Production Ready |
@@ -259,59 +257,6 @@ Install-AppxBackup -PackagePath "C:\Backups\MyApp.appx" -SkipCertificate
 
 ---
 
-## 🔧 Advanced Features
-
-### Multi-Tier Copy Strategy
-
-The module implements a sophisticated three-tier file copy system for handling WindowsApps folder access:
-
-**Tier 1: Robocopy** (Fastest, most reliable)
-```powershell
-robocopy.exe $source $dest *.* /E /COPY:DAT /DCOPY:DA /R:1 /W:1
-```
-- No special privileges required
-- Exit codes 0-7 = success
-
-**Tier 2: PowerShell Copy-Item** (Native fallback)
-```powershell
-Get-ChildItem -Recurse | ForEach-Object { Copy-Item -LiteralPath ... }
-```
-- Item-by-item with proper directory structure
-
-**Tier 3: .NET File APIs** (Maximum resilience)
-```powershell
-[System.IO.File]::Copy($source, $dest, $true)
-```
-- Skips locked files, continues operation
-
-### Dynamic Content_Types.xml Generation
-
-If `[Content_Types].xml` is missing, the module auto-generates a comprehensive version:
-
-- Scans package for all unique file extensions
-- Maps to appropriate MIME types (30+ mappings)
-- Includes APPX-specific overrides
-- Handles unknown extensions gracefully
-
-### Automatic Certificate Trust
-
-**NEW in v2.0:** Certificates are automatically installed to the Trusted Root store during backup:
-
-1. **Try LocalMachine\Root** (Administrator required)
-   - System-wide trust
-   - Any user can install package
-
-2. **Fallback to CurrentUser\Root** (No admin needed)
-   - Current user trust only
-   - Still allows package installation
-
-3. **Clear User Guidance** (If auto-install fails)
-   ```powershell
-   Import-Certificate -FilePath "cert.cer" -CertStoreLocation "Cert:\LocalMachine\Root"
-   ```
-
----
-
 ## 🐛 Troubleshooting
 
 ### Common Errors and Solutions
@@ -391,7 +336,7 @@ AppxBackup.Module/
 │
 ├── Public/                   # Exported functions (9 total)
 │   ├── Backup-AppxPackage.ps1          # Main backup function
-│   ├── Install-AppxBackup.ps1          # NEW: Standalone installer
+│   ├── Install-AppxBackup.ps1          # Standalone installer
 │   ├── New-AppxBackupCertificate.ps1   # Certificate creation
 │   ├── Restore-AppxPackage.ps1         # Package restoration
 │   ├── Get-AppxBackupInfo.ps1          # Package analysis
@@ -418,37 +363,6 @@ AppxBackup.Module/
 └── Examples/                 # Usage examples
     └── UsageExamples.md
 ```
-
----
-
-## 🚀 What's New in v2.0.0 (January 2026)
-
-### Major New Features
-
-✨ **`Install-AppxBackup` Command** - Standalone installation script with auto-cert handling  
-✨ **Automatic Certificate Installation** - Zero-touch backup to restore  
-✨ **Intelligent Error Diagnostics** - Specific solutions for common failures (0x800B0109, etc.)  
-✨ **Dynamic Content_Types.xml** - Auto-generation with 30+ MIME types  
-✨ **Multi-Tier Copy System** - Robocopy → Copy-Item → .NET with automatic fallback  
-
-### Critical Fixes (January 15, 2026 Session)
-
-🐛 **Issue 1: MakeAppx Error Capture** - Fixed async STDERR capture timing  
-🐛 **Issue 2: XML Namespace Handling** - Proper XmlNamespaceManager initialization  
-🐛 **Issue 3: Hidden File Copy** - Robocopy `/COPYALL` with attribute removal  
-🐛 **Issue 4: Robocopy Path Quoting** - Removed quotes from array (PowerShell handles escaping)  
-🐛 **Issue 5: MakeAppx Log File** - Replaced non-existent `/l` flag with `/v` verbose mode  
-🐛 **Issue 6: Package Signing** - Replaced `Set-AuthenticodeSignature` with proper `SignTool.exe`  
-🐛 **Issue 7: Certificate Trust** - Automatic installation to Trusted Root store  
-
-### Architecture Improvements
-
-📐 **3,259 Lines** (vs 145 in 2016)  
-📐 **15 Functions** (8 public, 7 private)  
-📐 **Zero External Dependencies** (except optional Windows SDK)  
-📐 **Full PowerShell 7.5 Compatibility**  
-📐 **Production-Grade Error Handling** throughout  
-
 ---
 
 ## 📞 Support & Contributing
@@ -468,24 +382,4 @@ When reporting issues, include:
 4. Log file from `$env:TEMP\AppxBackup_*.log`
 
 ---
-
-## 📜 License
-
-**Enterprise Use License**  
-© 2026 CAN (Code Anything Now). All rights reserved.
-
-This module is provided for enterprise use. Redistribution requires permission.
-
----
-
-## 🙏 Acknowledgments
-
-Built with precision engineering by **CAN** (Code Anything Now) - Elite Systems Engineering
-
-**From 145 lines of amateur code to 3,259 lines of enterprise-grade PowerShell.**
-
----
-
-**Version:** 2.0.0  
-**Last Updated:** January 15, 2026  
-**Status:** Production Ready ✅
+© 2026 DeltaGa. All rights reserved.

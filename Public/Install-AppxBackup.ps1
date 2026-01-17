@@ -48,7 +48,7 @@
     Installs package without installing certificate (assumes already trusted).
 
 .NOTES
-    Author: CAN (Code Anything Now)
+    Author: DeltaGa
     Version: 1.0.0
     Requires: PowerShell 5.1+, Windows 10 1809+
 #>

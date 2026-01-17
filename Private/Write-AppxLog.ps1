@@ -3,8 +3,6 @@
     Structured logging function with multiple output targets and severity levels.
 
 .DESCRIPTION
-    Professional logging infrastructure replacing the non-existent logging in the 2016 version.
-    
     Features:
     - Multiple severity levels (Debug, Verbose, Info, Warning, Error, Critical)
     - Simultaneous file and stream output

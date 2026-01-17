@@ -3,8 +3,6 @@
     Safely invokes an external process with comprehensive error handling and timeout protection.
 
 .DESCRIPTION
-    Replaces the catastrophically broken Run-Process from the 2016 implementation.
-    
     Key improvements:
     - Asynchronous I/O to prevent deadlocks
     - Configurable timeout with forceful termination

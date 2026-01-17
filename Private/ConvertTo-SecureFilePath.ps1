@@ -3,8 +3,6 @@
     Converts and validates file paths to prevent injection attacks and handle special characters.
 
 .DESCRIPTION
-    Critical security function missing from the 2016 implementation.
-    
     Addresses:
     - Path traversal attacks
     - Command injection via file paths
