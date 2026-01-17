@@ -10,7 +10,7 @@
 
 ## 🎯 Overview
 
-AppxBackup is a **complete 2026 rewrite** of the 2016 amateur APPX backup script, transformed into a production-grade PowerShell module. This toolkit provides **zero-dependency**, **end-to-end** Windows Store/MSIX application backup and restoration.
+AppxBackup is a **complete 2026 rewrite** of the 2016 original APPX backup script, transformed into a production-grade PowerShell module. This toolkit provides **zero-dependency**, **end-to-end** Windows Store/MSIX application backup and restoration.
 
 ### Key Capabilities
 
