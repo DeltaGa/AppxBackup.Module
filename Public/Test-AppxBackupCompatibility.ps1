@@ -185,7 +185,7 @@ function Test-AppxBackupCompatibility {
                 $tempDir = $null
                 
                 if ([System.IO.Path]::GetExtension($packagePath) -in @('.appx', '.msix')) {
-                    $tempDir = Join-Path $env:TEMP "AppxCompatCheck_$(New-Guid)"
+                    $tempDir = [System.IO.Path]::Combine($env:TEMP, "AppxCompatCheck_$(New-Guid)")
                     [void](New-Item -Path $tempDir -ItemType Directory -Force)
                     
                     Add-Type -AssemblyName 'System.IO.Compression.FileSystem'
@@ -194,7 +194,7 @@ function Test-AppxBackupCompatibility {
                     try {
                         $manifestEntry = $archive.Entries | Where-Object { $_.Name -eq 'AppxManifest.xml' } | Select-Object -First 1
                         if ($manifestEntry) {
-                            $manifestPath = Join-Path $tempDir 'AppxManifest.xml'
+                            $manifestPath = [System.IO.Path]::Combine($tempDir, 'AppxManifest.xml')
                             [System.IO.Compression.ZipFileExtensions]::ExtractToFile($manifestEntry, $manifestPath, $true)
                             $workingPath = $tempDir
                         }
@@ -220,7 +220,7 @@ function Test-AppxBackupCompatibility {
                         
                         if ($Detailed.IsPresent) {
                             $missingDeps = $depResult.Dependencies | Where-Object { -not $_.IsInstalled -and -not $_.IsOptional }
-                            foreach ($dep in $missingDeps) {
+                            foreach ($dep in @($missingDeps)) {
                                 Write-Host "    - $($dep.Name) v$($dep.MinVersion)+" -ForegroundColor Yellow
                             }
                         }
@@ -311,6 +311,7 @@ function Test-AppxBackupCompatibility {
         }
         catch {
             Write-AppxLog -Message "Compatibility check failed: $_" -Level 'Error'
+            Write-AppxLog -Message "StackTrace: $($_.ScriptStackTrace)" -Level 'Debug'
             throw
         }
     }

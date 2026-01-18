@@ -1,0 +1,124 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AppxBackup Module Defaults Configuration",
+  "description": "Centralized configuration for all module constants, thresholds, timeouts, and default values",
+  "version": "2.0.0",
+  "pathDefaults": {
+    "maxPathLength": 260,
+    "maxPathLengthWithLongPathsEnabled": 32767,
+    "tempDirectoryBase": "$env:TEMP",
+    "description": "Path-related constants and defaults"
+  },
+  "timeoutDefaults": {
+    "processExecutionDefaultSeconds": 3600,
+    "processExecutionMaxSeconds": 86400,
+    "mutexWaitMilliseconds": 5000,
+    "asyncEventWaitMilliseconds": 1000,
+    "description": "Default timeout values for various operations"
+  },
+  "sleepDelays": {
+    "verificationDelaySeconds": 2,
+    "cleanupRetryDelaysMilliseconds": [300, 2000, 5000],
+    "maxCleanupAttempts": 3,
+    "description": "Sleep/wait delays for various retry and verification operations"
+  },
+  "packageSizeThresholds": {
+    "largeSizeMB": 1024,
+    "largeFileCount": 10000,
+    "warningSizeMB": 500,
+    "description": "Thresholds for warning about large packages"
+  },
+  "diskSpaceRequirements": {
+    "sourceMultiplier": 2,
+    "safetyMarginMB": 100,
+    "minimalAvailableSpaceMB": 500,
+    "minimalLogSpaceMB": 10,
+    "description": "Disk space calculation parameters"
+  },
+  "logConfiguration": {
+    "maxLogSizeMB": 10,
+    "maxLogArchives": 5,
+    "mutexTimeoutMilliseconds": 5000,
+    "outputBufferSizeLimit": 10485760,
+    "description": "Logging system configuration (10485760 = 10MB)"
+  },
+  "bufferSizes": {
+    "stdoutBuilderInitialCapacity": 16384,
+    "stderrBuilderInitialCapacity": 4096,
+    "maxOutputBytesPerStream": 10485760,
+    "errorMessageTruncateLength": 2000,
+    "description": "Buffer sizes for process output and error handling"
+  },
+  "compressionDefaults": {
+    "defaultLevel": "Normal",
+    "availableLevels": ["None", "Fast", "Normal", "Maximum"],
+    "description": "Package compression configuration"
+  },
+  "certificateDefaults": {
+    "defaultValidityYears": 3,
+    "maxValidityYears": 10,
+    "minValidityYears": 1,
+    "defaultKeyLength": 4096,
+    "availableKeyLengths": [2048, 3072, 4096],
+    "hashAlgorithm": "SHA256",
+    "fileDigestAlgorithm": "SHA256",
+    "description": "Certificate generation defaults"
+  },
+  "windowsVersions": {
+    "windows11BuildNumber": 22000,
+    "windows10BuildNumber": 10240,
+    "windows10MinimalBuild": 1809,
+    "description": "Windows version detection thresholds"
+  },
+  "powerShellVersions": {
+    "minimalVersionMajor": 5,
+    "minimalVersionMinor": 1,
+    "recommendedVersionMajor": 7,
+    "recommendedVersionMinor": 4,
+    "description": "PowerShell version requirements"
+  },
+  "windowsSDKVersions": {
+    "searchPaths": [
+      "${env:ProgramFiles(x86)}\\Windows Kits\\10\\bin\\10.0.26100.0\\x64",
+      "${env:ProgramFiles(x86)}\\Windows Kits\\10\\bin\\10.0.22621.0\\x64",
+      "${env:ProgramFiles(x86)}\\Windows Kits\\10\\bin\\10.0.19041.0\\x64",
+      "${env:ProgramFiles(x86)}\\Windows Kits\\10\\bin\\10.0.18362.0\\x64"
+    ],
+    "description": "Windows SDK search paths in priority order"
+  },
+  "xmlDefaults": {
+    "xmlDeclaration": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>",
+    "contentTypesNamespace": "http://schemas.openxmlformats.org/package/2006/content-types",
+    "description": "XML generation defaults"
+  },
+  "compressionRatioDefaults": {
+    "percentageDecimalPlaces": 1,
+    "sizeDecimalPlaces": 2,
+    "description": "Decimal place precision for size and compression calculations"
+  },
+  "htmlGenerationDefaults": {
+    "maxContainerWidth": "1200px",
+    "defaultPadding": "30px",
+    "borderRadius": "8px",
+    "description": "HTML report generation styling defaults"
+  },
+  "progressReporting": {
+    "enableProgressBars": true,
+    "percentCalculationDecimalPlaces": 0,
+    "description": "Progress reporting configuration"
+  },
+  "errorHandling": {
+    "includeStackTraceInLogs": true,
+    "maxErrorMessageLength": 2000,
+    "description": "Error handling and logging configuration"
+  },
+  "caching": {
+    "enableConfigurationCache": true,
+    "enableToolPathCache": true,
+    "description": "Module-level caching configuration"
+  },
+  "guidFormats": {
+    "tempDirectoryGuidFormat": "N",
+    "description": "GUID format for temporary directory names (N = no hyphens)"
+  }
+}

@@ -124,7 +124,14 @@ Key Features:
         'Private\New-AppxPackageInternal.ps1',
         'Private\Test-AppxToolAvailability.ps1',
         'Private\Resolve-AppxDependencies.ps1',
-        'Private\ConvertTo-SecureFilePath.ps1'
+        'Private\ConvertTo-SecureFilePath.ps1',
+        'Private\Get-AppxConfiguration.ps1',
+        'Private\Get-AppxDefault.ps1',
+        'Config\MimeTypes.json',
+        'Config\ToolConfiguration.json',
+        'Config\WindowsReservedNames.json',
+        'Config\PackageConfiguration.json',
+        'Config\ModuleDefaults.json'
     )
 
     # Private data to pass to the module specified in RootModule/ModuleToProcess

@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Tool Configuration Database",
+  "description": "Tool-specific timeout and async wait configurations for external process execution",
+  "version": "2.0.0",
+  "defaultConfiguration": {
+    "timeoutSeconds": 3600,
+    "asyncWaitMilliseconds": 1000
+  },
+  "toolConfigurations": {
+    "MakeAppx": {
+      "timeoutSeconds": 600,
+      "asyncWaitMilliseconds": 2000,
+      "description": "APPX/MSIX package creation tool - requires extended timeout for large packages"
+    },
+    "SignTool": {
+      "timeoutSeconds": 60,
+      "asyncWaitMilliseconds": 1000,
+      "description": "Code signing tool - fast operation with minimal output"
+    },
+    "Robocopy": {
+      "timeoutSeconds": 300,
+      "asyncWaitMilliseconds": 1500,
+      "description": "File copy utility - moderate timeout for large file operations"
+    }
+  },
+  "exitCodeInterpretation": {
+    "Robocopy": {
+      "successCodes": [0, 1, 2, 3, 4, 5, 6, 7],
+      "errorCodesStart": 8,
+      "description": "Robocopy returns 0-7 for various success states, 8+ indicates errors"
+    },
+    "default": {
+      "successCodes": [0],
+      "description": "Standard interpretation: 0 = success, non-zero = error"
+    }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Windows Reserved Filenames Database",
+  "description": "Windows reserved device names that cannot be used as filenames",
+  "version": "2.0.0",
+  "reference": "https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file",
+  "reservedNames": [
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
+    "COM1",
+    "COM2",
+    "COM3",
+    "COM4",
+    "COM5",
+    "COM6",
+    "COM7",
+    "COM8",
+    "COM9",
+    "LPT1",
+    "LPT2",
+    "LPT3",
+    "LPT4",
+    "LPT5",
+    "LPT6",
+    "LPT7",
+    "LPT8",
+    "LPT9"
+  ],
+  "notes": [
+    "These names are reserved regardless of file extension",
+    "Example: 'CON.txt' is still invalid",
+    "Case-insensitive comparison required"
+  ]
+}

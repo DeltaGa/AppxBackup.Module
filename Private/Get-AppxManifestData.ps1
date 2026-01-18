@@ -161,30 +161,30 @@ function Get-AppxManifestData {
                 $identityNode = $manifest.SelectSingleNode('//appx:Package/appx:Identity', $nsManager)
             }
             catch {
-                Write-AppxLog -Message "XPath with namespace failed: $_" -Level 'Debug'
+                Write-AppxLog -Message "XPath with namespace failed: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Debug'
             }
             
             # Strategy 2: Direct property access (no namespace)
-            if (-not $identityNode) {
+            if ($null -eq $identityNode) {
                 try {
                     $identityNode = $manifest.Package.Identity
                 }
                 catch {
-                    Write-AppxLog -Message "Direct property access failed: $_" -Level 'Debug'
+                    Write-AppxLog -Message "Direct property access failed: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Debug'
                 }
             }
             
             # Strategy 3: Search by element name only (namespace-agnostic)
-            if (-not $identityNode) {
+            if ($null -eq $identityNode) {
                 try {
                     $identityNode = $manifest.GetElementsByTagName('Identity') | Select-Object -First 1
                 }
                 catch {
-                    Write-AppxLog -Message "Element search failed: $_" -Level 'Debug'
+                    Write-AppxLog -Message "Element search failed: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Debug'
                 }
             }
             
-            if (-not $identityNode) {
+            if ($null -eq $identityNode) {
                 throw "Invalid manifest: Identity element not found using any strategy"
             }
 
@@ -220,26 +220,26 @@ function Get-AppxManifestData {
                 $propertiesNode = $manifest.SelectSingleNode('//appx:Package/appx:Properties', $nsManager)
             }
             catch {
-                Write-AppxLog -Message "XPath for Properties failed: $_" -Level 'Debug'
+                Write-AppxLog -Message "XPath for Properties failed: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Debug'
             }
             
             # Strategy 2: Direct access
-            if (-not $propertiesNode) {
+            if ($null -eq $propertiesNode) {
                 try {
                     $propertiesNode = $manifest.Package.Properties
                 }
                 catch {
-                    Write-AppxLog -Message "Direct Properties access failed: $_" -Level 'Debug'
+                    Write-AppxLog -Message "Direct Properties access failed: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Debug'
                 }
             }
             
             # Strategy 3: Element search
-            if (-not $propertiesNode) {
+            if ($null -eq $propertiesNode) {
                 try {
                     $propertiesNode = $manifest.GetElementsByTagName('Properties') | Select-Object -First 1
                 }
                 catch {
-                    Write-AppxLog -Message "Element search for Properties failed: $_" -Level 'Debug'
+                    Write-AppxLog -Message "Element search for Properties failed: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Debug'
                 }
             }
             
@@ -271,7 +271,7 @@ function Get-AppxManifestData {
                 }
             }
             catch {
-                Write-AppxLog -Message "MSIX detection failed: $_" -Level 'Debug'
+                Write-AppxLog -Message "MSIX detection failed: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Debug'
             }
 
             # Extract Dependencies (if requested)
@@ -285,14 +285,14 @@ function Get-AppxManifestData {
                 }
                 catch {}
                 
-                if (-not $dependenciesNode) {
+                if ($null -eq $dependenciesNode) {
                     try {
                         $dependenciesNode = $manifest.Package.Dependencies
                     }
                     catch {}
                 }
                 
-                if (-not $dependenciesNode) {
+                if ($null -eq $dependenciesNode) {
                     try {
                         $dependenciesNode = $manifest.GetElementsByTagName('Dependencies') | Select-Object -First 1
                     }
@@ -303,14 +303,14 @@ function Get-AppxManifestData {
                     # Try to get PackageDependency elements
                     try {
                         $depElements = $dependenciesNode.SelectNodes('.//appx:PackageDependency', $nsManager)
-                        if (-not $depElements) {
+                        if ($null -eq $depElements) {
                             $depElements = $dependenciesNode.PackageDependency
                         }
-                        if (-not $depElements) {
+                        if ($null -eq $depElements) {
                             $depElements = $dependenciesNode.GetElementsByTagName('PackageDependency')
                         }
                         
-                        foreach ($dep in $depElements) {
+                        foreach ($dep in @($depElements)) {
                             $dependencies += [PSCustomObject]@{
                                 Name = Get-SafeAttribute -Node $dep -AttributeName 'Name' -DefaultValue 'Unknown'
                                 Publisher = Get-SafeAttribute -Node $dep -AttributeName 'Publisher'
@@ -319,7 +319,7 @@ function Get-AppxManifestData {
                         }
                     }
                     catch {
-                        Write-AppxLog -Message "Failed to extract dependencies: $_" -Level 'Debug'
+                        Write-AppxLog -Message "Failed to extract dependencies: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Debug'
                     }
                 }
                 
@@ -338,14 +338,14 @@ function Get-AppxManifestData {
                 }
                 catch {}
                 
-                if (-not $capabilitiesNode) {
+                if ($null -eq $capabilitiesNode) {
                     try {
                         $capabilitiesNode = $manifest.Package.Capabilities
                     }
                     catch {}
                 }
                 
-                if (-not $capabilitiesNode) {
+                if ($null -eq $capabilitiesNode) {
                     try {
                         $capabilitiesNode = $manifest.GetElementsByTagName('Capabilities') | Select-Object -First 1
                     }
@@ -357,7 +357,7 @@ function Get-AppxManifestData {
                     try {
                         $capElements = $capabilitiesNode.ChildNodes | Where-Object { $_.LocalName -match 'Capability$' }
                         
-                        foreach ($cap in $capElements) {
+                        foreach ($cap in @($capElements)) {
                             $capName = Get-SafeAttribute -Node $cap -AttributeName 'Name'
                             if ($capName) {
                                 $capabilities += $capName
@@ -365,7 +365,7 @@ function Get-AppxManifestData {
                         }
                     }
                     catch {
-                        Write-AppxLog -Message "Failed to extract capabilities: $_" -Level 'Debug'
+                        Write-AppxLog -Message "Failed to extract capabilities: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Debug'
                     }
                 }
                 
@@ -383,14 +383,14 @@ function Get-AppxManifestData {
                 }
                 catch {}
                 
-                if (-not $appsNode) {
+                if ($null -eq $appsNode) {
                     try {
                         $appsNode = $manifest.Package.Applications
                     }
                     catch {}
                 }
                 
-                if (-not $appsNode) {
+                if ($null -eq $appsNode) {
                     try {
                         $appsNode = $manifest.GetElementsByTagName('Applications') | Select-Object -First 1
                     }
@@ -402,7 +402,7 @@ function Get-AppxManifestData {
                     
                     $appElements = $appsNode.ChildNodes | Where-Object { $_.LocalName -eq 'Application' }
                     
-                    foreach ($app in $appElements) {
+                    foreach ($app in @($appElements)) {
                         $applications += [PSCustomObject]@{
                             Id = Get-SafeAttribute -Node $app -AttributeName 'Id' -DefaultValue 'App'
                             Executable = Get-SafeAttribute -Node $app -AttributeName 'Executable'
@@ -415,7 +415,7 @@ function Get-AppxManifestData {
                 }
             }
             catch {
-                Write-AppxLog -Message "Failed to extract applications: $_" -Level 'Debug'
+                Write-AppxLog -Message "Failed to extract applications: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Debug'
             }
 
             # Calculate Package Family Name
@@ -430,7 +430,7 @@ function Get-AppxManifestData {
                 }
             }
             catch {
-                Write-AppxLog -Message "Failed to calculate PackageFamilyName: $_" -Level 'Debug'
+                Write-AppxLog -Message "Failed to calculate PackageFamilyName: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Debug'
             }
 
             # Calculate Package Full Name
@@ -442,7 +442,7 @@ function Get-AppxManifestData {
                 }
             }
             catch {
-                Write-AppxLog -Message "Failed to calculate PackageFullName: $_" -Level 'Debug'
+                Write-AppxLog -Message "Failed to calculate PackageFullName: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Debug'
             }
 
             Write-AppxLog -Message "Manifest parsed successfully: $($result.Name) v$($result.Version)" -Level 'Verbose'
@@ -450,7 +450,7 @@ function Get-AppxManifestData {
             return $result
         }
         catch {
-            Write-AppxLog -Message "Failed to parse manifest: $_" -Level 'Error'
+            Write-AppxLog -Message "Failed to parse manifest: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Error'
             Write-AppxLog -Message "Stack trace: $($_.ScriptStackTrace)" -Level 'Debug'
             throw
         }

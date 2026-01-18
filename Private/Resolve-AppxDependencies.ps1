@@ -46,7 +46,7 @@ function Resolve-AppxDependencies {
             $packagePath = ConvertTo-SecureFilePath -Path $PackagePath -MustExist -PathType Directory
             
             # Find and parse manifest
-            $manifestPath = Join-Path $packagePath 'AppxManifest.xml'
+            $manifestPath = [System.IO.Path]::Combine($packagePath, 'AppxManifest.xml')
             if (-not (Test-Path -LiteralPath $manifestPath)) {
                 throw "Manifest not found: $manifestPath"
             }
@@ -57,7 +57,7 @@ function Resolve-AppxDependencies {
             $dependencies = @()
             
             if ($manifestData.Dependencies -and $manifestData.Dependencies.Count -gt 0) {
-                foreach ($dep in $manifestData.Dependencies) {
+                foreach ($dep in @($manifestData.Dependencies)) {
                     $depInfo = [PSCustomObject]@{
                         PSTypeName          = 'AppxBackup.DependencyInfo'
                         Name                = $dep.Name
@@ -89,7 +89,7 @@ function Resolve-AppxDependencies {
                         }
                     }
                     catch {
-                        Write-AppxLog -Message "Failed to check dependency status: $_" -Level 'Debug'
+                        Write-AppxLog -Message "Failed to check dependency status: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Debug'
                     }
 
                     $dependencies += $depInfo
@@ -106,15 +106,15 @@ function Resolve-AppxDependencies {
                 'Microsoft.Services.Store.Engagement'
             )
 
-            foreach ($pattern in $frameworkPatterns) {
+            foreach ($pattern in @($frameworkPatterns)) {
                 try {
                     $frameworkPkgs = Get-AppxPackage -Name $pattern -ErrorAction SilentlyContinue
                     
-                    foreach ($fwPkg in $frameworkPkgs) {
+                    foreach ($fwPkg in @($frameworkPkgs)) {
                         # Check if not already in dependencies
                         $exists = $dependencies | Where-Object { $_.Name -eq $fwPkg.Name }
                         
-                        if (-not $exists) {
+                        if ($null -eq $exists) {
                             $fwInfo = [PSCustomObject]@{
                                 PSTypeName          = 'AppxBackup.DependencyInfo'
                                 Name                = $fwPkg.Name
@@ -136,13 +136,13 @@ function Resolve-AppxDependencies {
                     }
                 }
                 catch {
-                    Write-AppxLog -Message "Framework detection failed for pattern '$pattern': $_" -Level 'Debug'
+                    Write-AppxLog -Message "Framework detection failed for pattern '$pattern': $_ | Stack: $($_.ScriptStackTrace)" -Level 'Debug'
                 }
             }
 
             # Recursive resolution
             if ($Recursive.IsPresent -and $currentDepth -lt $MaxDepth) {
-                foreach ($dep in $dependencies) {
+                foreach ($dep in @($dependencies)) {
                     if ($dep.ResolvedPath -and -not $processedPackages.ContainsKey($dep.Name)) {
                         $processedPackages[$dep.Name] = $true
                         
@@ -162,7 +162,7 @@ function Resolve-AppxDependencies {
                             }
                         }
                         catch {
-                            Write-AppxLog -Message "Failed to resolve sub-dependencies for $($dep.Name): $_" -Level 'Warning'
+                            Write-AppxLog -Message "Failed to resolve sub-dependencies for $($dep.Name): $_ | Stack: $($_.ScriptStackTrace)" -Level 'Warning'
                         }
                     }
                 }
@@ -186,7 +186,8 @@ function Resolve-AppxDependencies {
             return $result
         }
         catch {
-            Write-AppxLog -Message "Dependency resolution failed: $_" -Level 'Error'
+            Write-AppxLog -Message "Dependency resolution failed: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Error'
+            Write-AppxLog -Message "StackTrace: $($_.ScriptStackTrace)" -Level 'Debug'
             throw
         }
     }

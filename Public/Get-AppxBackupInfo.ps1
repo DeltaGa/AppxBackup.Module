@@ -72,14 +72,22 @@ function Get-AppxBackupInfo {
             
             Write-AppxLog -Message "Analyzing: $($packageFile.Name)" -Level 'Verbose'
             
-            # Validate extension
-            $validExtensions = @('.appx', '.msix', '.appxbundle', '.msixbundle')
+            # Validate extension - load from configuration
+            try {
+                $pkgConfig = Get-AppxConfiguration -ConfigName 'PackageConfiguration'
+                $validExtensions = $pkgConfig.packageExtensions.valid
+            }
+            catch {
+                Write-AppxLog -Message "Failed to load package configuration, using fallback: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Warning'
+                $validExtensions = @('.appx', '.msix', '.appxbundle', '.msixbundle')
+            }
+            
             if ($packageFile.Extension -notin $validExtensions) {
                 throw "Invalid package extension: $($packageFile.Extension). Expected: $($validExtensions -join ', ')"
             }
 
             # Create temp directory for extraction
-            $tempDir = Join-Path $env:TEMP "AppxInfo_$(New-Guid)"
+            $tempDir = [System.IO.Path]::Combine($env:TEMP, "AppxInfo_$(New-Guid)")
             [void](New-Item -Path $tempDir -ItemType Directory -Force)
             
             try {
@@ -89,12 +97,12 @@ function Get-AppxBackupInfo {
                 # Find manifest
                 $manifestEntry = $archive.Entries | Where-Object { $_.Name -eq 'AppxManifest.xml' } | Select-Object -First 1
                 
-                if (-not $manifestEntry) {
+                if ($null -eq $manifestEntry) {
                     throw "AppxManifest.xml not found in package"
                 }
 
                 # Extract manifest
-                $manifestPath = Join-Path $tempDir 'AppxManifest.xml'
+                $manifestPath = [System.IO.Path]::Combine($tempDir, 'AppxManifest.xml')
                 [System.IO.Compression.ZipFileExtensions]::ExtractToFile($manifestEntry, $manifestPath, $true)
                 
                 # Parse manifest
@@ -177,7 +185,7 @@ function Get-AppxBackupInfo {
                         Write-AppxLog -Message "Signature status: $($signature.Status)" -Level 'Debug'
                     }
                     catch {
-                        Write-AppxLog -Message "Failed to get signature info: $_" -Level 'Warning'
+                        Write-AppxLog -Message "Failed to get signature info: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Warning'
                         $result.SignatureInfo = $null
                     }
                 }
@@ -201,7 +209,8 @@ function Get-AppxBackupInfo {
             }
         }
         catch {
-            Write-AppxLog -Message "Failed to get package info: $_" -Level 'Error'
+            Write-AppxLog -Message "Failed to get package info: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Error'
+            Write-AppxLog -Message "StackTrace: $($_.ScriptStackTrace)" -Level 'Debug'
             throw
         }
     }

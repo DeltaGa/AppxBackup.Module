@@ -76,7 +76,7 @@ function Test-AppxToolAvailability {
             }
 
             # Strategy 2: Search Windows SDK installations
-            if (-not $toolPath) {
+            if ($null -eq $toolPath) {
                 # Detect current architecture
                 $arch = if ([Environment]::Is64BitOperatingSystem) { 'x64' } else { 'x86' }
                 
@@ -86,15 +86,15 @@ function Test-AppxToolAvailability {
                     "${env:ProgramFiles}\Windows Kits\10\bin"
                 )
 
-                foreach ($basePath in $sdkBasePaths) {
+                foreach ($basePath in @($sdkBasePaths)) {
                     if (Test-Path -LiteralPath $basePath) {
                         # Get SDK versions (sorted newest first)
                         $versionDirs = Get-ChildItem -LiteralPath $basePath -Directory -ErrorAction SilentlyContinue |
                             Where-Object { $_.Name -match '^\d+\.\d+\.\d+\.\d+$' } |
                             Sort-Object Name -Descending
 
-                        foreach ($versionDir in $versionDirs) {
-                            $candidatePath = Join-Path $versionDir.FullName "$arch\$toolExe"
+                        foreach ($versionDir in @($versionDirs)) {
+                            $candidatePath = [System.IO.Path]::Combine($versionDir.FullName, "$arch\$toolExe")
                             
                             if (Test-Path -LiteralPath $candidatePath) {
                                 $toolPath = $candidatePath
@@ -109,22 +109,22 @@ function Test-AppxToolAvailability {
             }
 
             # Strategy 3: Registry-based discovery
-            if (-not $toolPath) {
+            if ($null -eq $toolPath) {
                 try {
                     $regPath = 'HKLM:\SOFTWARE\Microsoft\Windows Kits\Installed Roots'
                     $kitsRoot = (Get-ItemProperty -Path $regPath -Name 'KitsRoot10' -ErrorAction Stop).KitsRoot10
                     
                     if ($kitsRoot) {
                         $arch = if ([Environment]::Is64BitOperatingSystem) { 'x64' } else { 'x86' }
-                        $binPath = Join-Path $kitsRoot "bin"
+                        $binPath = [System.IO.Path]::Combine($kitsRoot, "bin")
                         
                         if (Test-Path -LiteralPath $binPath) {
                             $versionDirs = Get-ChildItem -LiteralPath $binPath -Directory |
                                 Where-Object { $_.Name -match '^\d+\.\d+\.\d+\.\d+$' } |
                                 Sort-Object Name -Descending
 
-                            foreach ($versionDir in $versionDirs) {
-                                $candidatePath = Join-Path $versionDir.FullName "$arch\$toolExe"
+                            foreach ($versionDir in @($versionDirs)) {
+                                $candidatePath = [System.IO.Path]::Combine($versionDir.FullName, "$arch\$toolExe")
                                 
                                 if (Test-Path -LiteralPath $candidatePath) {
                                     $toolPath = $candidatePath
@@ -136,20 +136,39 @@ function Test-AppxToolAvailability {
                     }
                 }
                 catch {
-                    Write-AppxLog -Message "Registry lookup failed: $_" -Level 'Debug'
+                    Write-AppxLog -Message "Registry lookup failed: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Debug'
                 }
             }
 
             # Strategy 4: Common installation locations (last resort)
-            if (-not $toolPath) {
-                $commonPaths = @(
-                    "${env:ProgramFiles(x86)}\Windows Kits\10\bin\10.0.22621.0\x64\$toolExe",
-                    "${env:ProgramFiles(x86)}\Windows Kits\10\bin\10.0.19041.0\x64\$toolExe",
-                    "${env:ProgramFiles(x86)}\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8 Tools\x64\$toolExe",
-                    "C:\Windows\System32\$toolExe"
-                )
+            if ($null -eq $toolPath) {
+                # Load SDK paths from configuration
+                try {
+                    $sdkPaths = Get-AppxDefault 'windowsSDKVersions.searchPaths' -Fallback @()
+                    
+                    # Expand environment variables in paths and append tool executable
+                    $commonPaths = $sdkPaths | ForEach-Object {
+                        $expandedPath = [System.Environment]::ExpandEnvironmentVariables($_)
+                        [System.IO.Path]::Combine($expandedPath, $toolExe)
+                    }
+                    
+                    # Add legacy fallback paths
+                    $commonPaths += @(
+                        "${env:ProgramFiles(x86)}\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8 Tools\x64\$toolExe",
+                        "C:\Windows\System32\$toolExe"
+                    )
+                }
+                catch {
+                    # Fallback to minimal hardcoded paths if configuration fails
+                    Write-AppxLog -Message "Failed to load SDK paths from config, using fallback: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Warning'
+                    $commonPaths = @(
+                        "${env:ProgramFiles(x86)}\Windows Kits\10\bin\10.0.22621.0\x64\$toolExe",
+                        "${env:ProgramFiles(x86)}\Windows Kits\10\bin\10.0.19041.0\x64\$toolExe",
+                        "C:\Windows\System32\$toolExe"
+                    )
+                }
 
-                foreach ($path in $commonPaths) {
+                foreach ($path in @($commonPaths)) {
                     if (Test-Path -LiteralPath $path) {
                         $toolPath = $path
                         Write-AppxLog -Message "Found $ToolName in common location: $toolPath" -Level 'Verbose'
@@ -176,7 +195,8 @@ function Test-AppxToolAvailability {
             }
         }
         catch {
-            Write-AppxLog -Message "Tool availability check failed: $_" -Level 'Error'
+            Write-AppxLog -Message "Tool availability check failed: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Error'
+            Write-AppxLog -Message "StackTrace: $($_.ScriptStackTrace)" -Level 'Debug'
             
             if ($ThrowOnMissing.IsPresent -or $ThrowOnError.IsPresent) {
                 throw

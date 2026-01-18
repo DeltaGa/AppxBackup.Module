@@ -77,7 +77,7 @@ function Test-AppxPackageIntegrity {
                     $signature = Get-AuthenticodeSignature -FilePath $packagePath
                     $signatureValid = ($signature.Status -eq 'Valid')
                     
-                    if (-not $signatureValid) {
+                    if ($null -eq $signatureValid) {
                         $issues += "Invalid signature: $($signature.StatusMessage)"
                         Write-AppxLog -Message "Signature status: $($signature.Status)" -Level 'Warning'
                     }
@@ -93,7 +93,7 @@ function Test-AppxPackageIntegrity {
             if ($CheckManifest.IsPresent) {
                 try {
                     # Extract and parse manifest
-                    $tempDir = Join-Path $env:TEMP "AppxValidation_$(New-Guid)"
+                    $tempDir = [System.IO.Path]::Combine($env:TEMP, "AppxValidation_$(New-Guid)")
                     [void](New-Item -Path $tempDir -ItemType Directory -Force)
                     
                     try {
@@ -101,7 +101,7 @@ function Test-AppxPackageIntegrity {
                         $manifestEntry = $archive.Entries | Where-Object { $_.Name -eq 'AppxManifest.xml' } | Select-Object -First 1
                         
                         if ($manifestEntry) {
-                            $manifestPath = Join-Path $tempDir 'AppxManifest.xml'
+                            $manifestPath = [System.IO.Path]::Combine($tempDir, 'AppxManifest.xml')
                             [System.IO.Compression.ZipFileExtensions]::ExtractToFile($manifestEntry, $manifestPath)
                             
                             $manifestData = Get-AppxManifestData -ManifestPath $manifestPath
@@ -147,7 +147,8 @@ function Test-AppxPackageIntegrity {
             return $result
         }
         catch {
-            Write-AppxLog -Message "Package integrity check failed: $_" -Level 'Error'
+            Write-AppxLog -Message "Package integrity check failed: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Error'
+            Write-AppxLog -Message "StackTrace: $($_.ScriptStackTrace)" -Level 'Debug'
             throw
         }
     }

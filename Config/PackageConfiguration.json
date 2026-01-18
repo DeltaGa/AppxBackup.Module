@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Package Configuration Database",
+  "description": "APPX/MSIX package constants and configuration data",
+  "version": "2.0.0",
+  "packageExtensions": {
+    "valid": [".appx", ".msix", ".appxbundle", ".msixbundle"],
+    "single": [".appx", ".msix"],
+    "bundle": [".appxbundle", ".msixbundle"],
+    "description": "Valid file extensions for Windows application packages"
+  },
+  "signatureFiles": {
+    "files": ["AppxSignature.p7x", "AppxBlockMap.xml"],
+    "description": "Package files that must be removed before repackaging to avoid conflicts"
+  },
+  "manifestFiles": {
+    "primary": "AppxManifest.xml",
+    "bundle": "AppxBundleManifest.xml",
+    "blockmap": "AppxBlockMap.xml",
+    "signature": "AppxSignature.p7x",
+    "contentTypes": "[Content_Types].xml"
+  },
+  "certificateExtensions": {
+    "public": [".cer", ".crt"],
+    "private": [".pfx", ".p12"],
+    "description": "Valid certificate file extensions"
+  },
+  "compressionLevels": {
+    "values": ["None", "Fast", "Normal", "Maximum"],
+    "default": "Normal",
+    "description": "Available compression levels for package creation"
+  },
+  "packageSizeThresholds": {
+    "largeSizeMB": 1024,
+    "largeFileCount": 10000,
+    "description": "Thresholds for warning users about large packages"
+  },
+  "diskSpaceRequirements": {
+    "multiplier": 2,
+    "safetyMarginMB": 100,
+    "description": "Disk space = (source size * multiplier) + safety margin"
+  },
+  "tempCleanupConfiguration": {
+    "maxAttempts": 3,
+    "delayMilliseconds": [300, 2000, 5000],
+    "description": "Exponential backoff for temporary file cleanup"
+  },
+  "namespaces": {
+    "default": "http://schemas.microsoft.com/appx/manifest/foundation/windows10",
+    "uap": "http://schemas.microsoft.com/appx/manifest/uap/windows10",
+    "uap2": "http://schemas.microsoft.com/appx/manifest/uap/windows10/2",
+    "uap3": "http://schemas.microsoft.com/appx/manifest/uap/windows10/3",
+    "mp": "http://schemas.microsoft.com/appx/2014/phone/manifest",
+    "build": "http://schemas.microsoft.com/developer/appx/2015/build",
+    "description": "Common XML namespaces used in APPX manifests"
+  }
+}

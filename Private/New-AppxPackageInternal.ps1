@@ -55,7 +55,7 @@ function New-AppxPackageInternal {
             $sourcePath = ConvertTo-SecureFilePath -Path $SourcePath -MustExist -PathType Directory
             
             # Validate manifest exists
-            $manifestPath = Join-Path $sourcePath 'AppxManifest.xml'
+            $manifestPath = [System.IO.Path]::Combine($sourcePath, 'AppxManifest.xml')
             if (-not (Test-Path -LiteralPath $manifestPath)) {
                 throw "AppxManifest.xml not found in source path"
             }
@@ -87,14 +87,14 @@ function New-AppxPackageInternal {
                     # Query VisualElements for logo attributes
                     $visualElements = $manifestXml.SelectNodes('//appx:VisualElements | //uap:VisualElements', $nsManager)
                     
-                    foreach ($element in $visualElements) {
+                    foreach ($element in @($visualElements)) {
                         # Check common logo attributes
                         $logoAttrs = @('Logo', 'Square150x150Logo', 'Square44x44Logo', 'Square71x71Logo', 'Wide310x150Logo', 'Square310x310Logo')
-                        foreach ($attr in $logoAttrs) {
+                        foreach ($attr in @($logoAttrs)) {
                             if ($element.HasAttribute($attr)) {
                                 $logoPath = $element.GetAttribute($attr)
                                 if ($logoPath) {
-                                    $fullLogoPath = Join-Path $sourcePath $logoPath
+                                    $fullLogoPath = [System.IO.Path]::Combine($sourcePath, $logoPath)
                                     if (-not (Test-Path -LiteralPath $fullLogoPath)) {
                                         Write-AppxLog -Message "WARNING: Logo file '$logoPath' referenced in manifest not found" -Level 'Warning'
                                     }
@@ -104,7 +104,7 @@ function New-AppxPackageInternal {
                     }
                 }
                 catch {
-                    Write-AppxLog -Message "Manifest validation failed: $_" -Level 'Warning'
+                    Write-AppxLog -Message "Manifest validation failed: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Warning'
                     throw "Invalid manifest file: $_"
                 }
             }
@@ -113,6 +113,71 @@ function New-AppxPackageInternal {
             $outputDir = Split-Path -Path $OutputPath -Parent
             if ($outputDir -and -not (Test-Path -LiteralPath $outputDir)) {
                 [void](New-Item -Path $outputDir -ItemType Directory -Force)
+            }
+
+            # Package size validation and disk space checking
+            Write-AppxLog -Message "Validating package size and disk space..." -Level 'Verbose'
+            
+            try {
+                # Calculate source directory size
+                $sourceFiles = Get-ChildItem -LiteralPath $sourcePath -Recurse -File -ErrorAction Stop
+                $sourceSize = ($sourceFiles | Measure-Object -Property Length -Sum).Sum
+                $sourceSizeMB = [Math]::Round($sourceSize / 1MB, 2)
+                $fileCount = $sourceFiles.Count
+                
+                Write-AppxLog -Message "Source directory: $sourceSizeMB MB ($fileCount files)" -Level 'Verbose'
+                
+                # Load thresholds from configuration
+                $largeSizeThreshold = Get-AppxDefault 'packageSizeThresholds.largeSizeMB' -Fallback 1024
+                $largeFileCountThreshold = Get-AppxDefault 'packageSizeThresholds.largeFileCount' -Fallback 10000
+                
+                # Warn if package is large (>configured threshold)
+                if ($sourceSizeMB -gt $largeSizeThreshold) {
+                    Write-Host "[WARNING] Large package detected ($sourceSizeMB MB, $fileCount files)" -ForegroundColor Yellow
+                    Write-Host "  Processing may take several minutes. Please be patient..." -ForegroundColor Yellow
+                    Write-AppxLog -Message "Large package warning displayed to user" -Level 'Info'
+                }
+                
+                # Warn if too many files (>configured threshold)
+                if ($fileCount -gt $largeFileCountThreshold) {
+                    Write-Host "[WARNING] Package contains many files ($fileCount)" -ForegroundColor Yellow
+                    Write-Host "  Packaging performance may be slower than usual..." -ForegroundColor Yellow
+                    Write-AppxLog -Message "High file count warning displayed to user" -Level 'Info'
+                }
+                
+                # Check available disk space (require configured multiplier * source size + safety margin)
+                $outputDrive = [System.IO.Path]::GetPathRoot($OutputPath)
+                if ($outputDrive) {
+                    $driveInfo = [System.IO.DriveInfo]::new($outputDrive)
+                    $availableSpaceMB = [Math]::Round($driveInfo.AvailableFreeSpace / 1MB, 2)
+                    
+                    # Load disk space calculation parameters from configuration
+                    $multiplier = Get-AppxDefault 'diskSpaceRequirements.sourceMultiplier' -Fallback 2
+                    $safetyMargin = Get-AppxDefault 'diskSpaceRequirements.safetyMarginMB' -Fallback 100
+                    $minimalRemaining = Get-AppxDefault 'diskSpaceRequirements.minimalAvailableSpaceMB' -Fallback 500
+                    
+                    $requiredSpaceMB = ($sourceSizeMB * $multiplier) + $safetyMargin
+                    
+                    Write-AppxLog -Message "Disk space - Available: $availableSpaceMB MB, Required: $requiredSpaceMB MB" -Level 'Debug'
+                    
+                    if ($availableSpaceMB -lt $requiredSpaceMB) {
+                        $shortfall = [Math]::Round($requiredSpaceMB - $availableSpaceMB, 2)
+                        throw "Insufficient disk space on $outputDrive. Need $shortfall MB more space. Available: $availableSpaceMB MB, Required: $requiredSpaceMB MB"
+                    }
+                    
+                    # Warn if available space is marginal (<configured minimum after operation)
+                    if (($availableSpaceMB - $requiredSpaceMB) -lt $minimalRemaining) {
+                        Write-Warning "Disk space will be low after packaging (less than $minimalRemaining MB remaining)"
+                        Write-AppxLog -Message "Low disk space warning displayed" -Level 'Warning'
+                    }
+                }
+            }
+            catch {
+                Write-AppxLog -Message "Package size validation warning: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Warning'
+                # Non-fatal - continue with packaging unless it's a disk space error
+                if ($_.Exception.Message -like "*Insufficient disk space*") {
+                    throw
+                }
             }
 
             # Check if output file already exists
@@ -142,10 +207,19 @@ function New-AppxPackageInternal {
                         Write-AppxLog -Message "Direct access to WindowsApps folder successful" -Level 'Debug'
                         
                         # Check for problematic signature files that will cause repackaging to fail
-                        $signatureFiles = @('AppxSignature.p7x', 'AppxBlockMap.xml')
+                        # Load from configuration
+                        try {
+                            $pkgConfig = Get-AppxConfiguration -ConfigName 'PackageConfiguration'
+                            $signatureFiles = $pkgConfig.signatureFiles.files
+                        }
+                        catch {
+                            Write-AppxLog -Message "Failed to load signature files config, using fallback: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Debug'
+                            $signatureFiles = @('AppxSignature.p7x', 'AppxBlockMap.xml')
+                        }
+                        
                         $hasSignatureFiles = $false
-                        foreach ($sigFile in $signatureFiles) {
-                            $sigPath = Join-Path $sourcePath $sigFile
+                        foreach ($sigFile in @($signatureFiles)) {
+                            $sigPath = [System.IO.Path]::Combine($sourcePath, $sigFile)
                             if (Test-Path -LiteralPath $sigPath) {
                                 $hasSignatureFiles = $true
                                 break
@@ -162,7 +236,7 @@ function New-AppxPackageInternal {
                         Write-AppxLog -Message "Cannot access WindowsApps folder directly, copying to temp location..." -Level 'Verbose'
                         
                         # Create temp directory
-                        $tempSourcePath = Join-Path $env:TEMP "AppxBackup_$(New-Guid)"
+                        $tempSourcePath = [System.IO.Path]::Combine($env:TEMP, "AppxBackup_$(New-Guid)")
                         [void](New-Item -Path $tempSourcePath -ItemType Directory -Force)
                         
                         # Copy with permissions override (using robocopy for better handling)
@@ -213,7 +287,7 @@ function New-AppxPackageInternal {
                                 }
                             }
                             catch {
-                                Write-AppxLog -Message "Robocopy failed: $_" -Level 'Warning'
+                                Write-AppxLog -Message "Robocopy failed: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Warning'
                                 Write-AppxLog -Message "Falling back to PowerShell native copy..." -Level 'Verbose'
                                 
                                 # STRATEGY 2: PowerShell Copy-Item (handles most cases)
@@ -223,9 +297,9 @@ function New-AppxPackageInternal {
                                     # Get all items first, then copy (works around permission issues)
                                     $itemsToCopy = Get-ChildItem -Path $sourcePath -Recurse -Force -ErrorAction Stop
                                     
-                                    foreach ($item in $itemsToCopy) {
+                                    foreach ($item in @($itemsToCopy)) {
                                         $relativePath = $item.FullName.Substring($sourcePath.Length).TrimStart('\')
-                                        $destPath = Join-Path $tempSourcePath $relativePath
+                                        $destPath = [System.IO.Path]::Combine($tempSourcePath, $relativePath)
                                         
                                         if ($item.PSIsContainer) {
                                             if (-not (Test-Path -LiteralPath $destPath)) {
@@ -246,7 +320,7 @@ function New-AppxPackageInternal {
                                     Write-AppxLog -Message "Copy-Item succeeded" -Level 'Debug'
                                 }
                                 catch {
-                                    Write-AppxLog -Message "Copy-Item failed: $_" -Level 'Warning'
+                                    Write-AppxLog -Message "Copy-Item failed: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Warning'
                                     Write-AppxLog -Message "Falling back to .NET file copy..." -Level 'Verbose'
                                     
                                     # STRATEGY 3: .NET Directory copy (most granular control)
@@ -267,7 +341,7 @@ function New-AppxPackageInternal {
                                             # Copy files with error tolerance
                                             foreach ($file in $sourceDir.GetFiles()) {
                                                 try {
-                                                    $destFile = Join-Path $Destination $file.Name
+                                                    $destFile = [System.IO.Path]::Combine($Destination, $file.Name)
                                                     [System.IO.File]::Copy($file.FullName, $destFile, $true)
                                                 }
                                                 catch {
@@ -278,7 +352,7 @@ function New-AppxPackageInternal {
                                             # Copy subdirectories recursively
                                             foreach ($dir in $sourceDir.GetDirectories()) {
                                                 try {
-                                                    $destDir = Join-Path $Destination $dir.Name
+                                                    $destDir = [System.IO.Path]::Combine($Destination, $dir.Name)
                                                     Copy-DirectoryNET -Source $dir.FullName -Destination $destDir
                                                 }
                                                 catch {
@@ -294,13 +368,14 @@ function New-AppxPackageInternal {
                                         Write-AppxLog -Message ".NET copy succeeded" -Level 'Debug'
                                     }
                                     catch {
-                                        Write-AppxLog -Message ".NET copy failed: $_" -Level 'Error'
+                                        Write-AppxLog -Message ".NET copy failed: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Error'
+                                        Write-AppxLog -Message "StackTrace: $($_.ScriptStackTrace)" -Level 'Debug'
                                         throw "All copy strategies failed. Last error: $_"
                                     }
                                 }
                             }
                             
-                            if (-not $copySucceeded) {
+                            if ($null -eq $copySucceeded) {
                                 throw "Failed to copy source files"
                             }
                             
@@ -311,9 +386,18 @@ function New-AppxPackageInternal {
                             Write-AppxLog -Message "Copy complete, using temp location" -Level 'Debug'
                             
                             # Remove existing signature files as they're invalid for repackaging
-                            $signatureFiles = @('AppxSignature.p7x', 'AppxBlockMap.xml')
-                            foreach ($sigFile in $signatureFiles) {
-                                $sigPath = Join-Path $tempSourcePath $sigFile
+                            # Load from configuration (should already be loaded, but fallback included)
+                            try {
+                                if ($null -eq $signatureFiles) {
+                                    $pkgConfig = Get-AppxConfiguration -ConfigName 'PackageConfiguration'
+                                    $signatureFiles = $pkgConfig.signatureFiles.files
+                                }
+                            }
+                            catch {
+                                $signatureFiles = @('AppxSignature.p7x', 'AppxBlockMap.xml')
+                            }
+                            foreach ($sigFile in @($signatureFiles)) {
+                                $sigPath = [System.IO.Path]::Combine($tempSourcePath, $sigFile)
                                 if (Test-Path -LiteralPath $sigPath) {
                                     Remove-Item -LiteralPath $sigPath -Force -ErrorAction SilentlyContinue
                                     Write-AppxLog -Message "Removed existing $sigFile for repackaging" -Level 'Debug'
@@ -322,8 +406,8 @@ function New-AppxPackageInternal {
                             
                             # Verify critical files exist after copy
                             $criticalFiles = @('AppxManifest.xml', '[Content_Types].xml')
-                            foreach ($critical in $criticalFiles) {
-                                $criticalPath = Join-Path $tempSourcePath $critical
+                            foreach ($critical in @($criticalFiles)) {
+                                $criticalPath = [System.IO.Path]::Combine($tempSourcePath, $critical)
                                 if (-not (Test-Path -LiteralPath $criticalPath)) {
                                     
                                     # Special handling for [Content_Types].xml - generate if missing
@@ -342,54 +426,49 @@ function New-AppxPackageInternal {
                                             Write-AppxLog -Message "Found $($extensions.Count) unique file extensions in package" -Level 'Debug'
                                         }
                                         catch {
-                                            Write-AppxLog -Message "Could not scan extensions: $_" -Level 'Debug'
+                                            Write-AppxLog -Message "Could not scan extensions: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Debug'
                                         }
                                         
-                                        # Build comprehensive Content_Types.xml with common MIME types
+                                        # Build comprehensive Content_Types.xml with MIME types from external database
                                         $sb = [System.Text.StringBuilder]::new()
                                         [void]$sb.AppendLine('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>')
                                         [void]$sb.AppendLine('<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">')
                                         
-                                        # Common MIME type mappings (comprehensive)
-                                        $mimeTypes = @{
-                                            'xml' = 'application/xml'
-                                            'dll' = 'application/x-msdownload'
-                                            'exe' = 'application/x-msdownload'
-                                            'winmd' = 'application/x-ms-winmd'
-                                            'pri' = 'application/octet-stream'
-                                            'png' = 'image/png'
-                                            'jpg' = 'image/jpeg'
-                                            'jpeg' = 'image/jpeg'
-                                            'gif' = 'image/gif'
-                                            'bmp' = 'image/bmp'
-                                            'ico' = 'image/x-icon'
-                                            'svg' = 'image/svg+xml'
-                                            'webp' = 'image/webp'
-                                            'htm' = 'text/html'
-                                            'html' = 'text/html'
-                                            'js' = 'application/javascript'
-                                            'json' = 'application/json'
-                                            'css' = 'text/css'
-                                            'txt' = 'text/plain'
-                                            'ttf' = 'application/x-font-ttf'
-                                            'otf' = 'application/x-font-opentype'
-                                            'woff' = 'application/font-woff'
-                                            'woff2' = 'application/font-woff2'
-                                            'eot' = 'application/vnd.ms-fontobject'
-                                            'wav' = 'audio/wav'
-                                            'mp3' = 'audio/mpeg'
-                                            'mp4' = 'video/mp4'
-                                            'avi' = 'video/x-msvideo'
-                                            'pdf' = 'application/pdf'
-                                            'zip' = 'application/zip'
+                                        # Load MIME type database from external configuration
+                                        try {
+                                            $mimeConfig = Get-AppxConfiguration -ConfigName 'MimeTypes'
+                                            $mimeTypes = @{}
+                                            
+                                            # Convert PSCustomObject properties to hashtable for easier lookup
+                                            foreach ($property in @($mimeConfig.mimeTypes.PSObject.Properties)) {
+                                                $mimeTypes[$property.Name] = $property.Value
+                                            }
+                                            
+                                            $defaultContentType = $mimeConfig.defaultContentType
+                                            
+                                            Write-AppxLog -Message "Loaded $($mimeTypes.Count) MIME types from configuration" -Level 'Debug'
+                                        }
+                                        catch {
+                                            # Fallback to minimal MIME types if configuration fails
+                                            Write-AppxLog -Message "Failed to load MIME configuration, using fallback: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Warning'
+                                            
+                                            $mimeTypes = @{
+                                                'xml'   = 'application/xml'
+                                                'dll'   = 'application/x-msdownload'
+                                                'exe'   = 'application/x-msdownload'
+                                                'png'   = 'image/png'
+                                                'jpg'   = 'image/jpeg'
+                                                'txt'   = 'text/plain'
+                                            }
+                                            $defaultContentType = 'application/octet-stream'
                                         }
                                         
                                         # Add default entries for all found extensions
-                                        foreach ($ext in $extensions.Keys) {
+                                        foreach ($ext in @($extensions.Keys)) {
                                             $contentType = if ($mimeTypes.ContainsKey($ext)) {
                                                 $mimeTypes[$ext]
                                             } else {
-                                                'application/octet-stream'
+                                                $defaultContentType
                                             }
                                             [void]$sb.AppendLine("  <Default Extension=`"$ext`" ContentType=`"$contentType`"/>")
                                         }
@@ -414,7 +493,8 @@ function New-AppxPackageInternal {
                                             Write-AppxLog -Message "Generated [Content_Types].xml with $($extensions.Count + $mimeTypes.Count) entries" -Level 'Debug'
                                         }
                                         catch {
-                                            throw "Failed to generate [Content_Types].xml: $_"
+                                            Write-AppxLog -Message "Failed to generate [Content_Types].xml: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Error'
+                throw "Failed to generate [Content_Types].xml: $_"
                                         }
                                     }
                                     else {
@@ -434,28 +514,39 @@ function New-AppxPackageInternal {
                 }
                 
                 # Build arguments for MakeAppx
-                # NOTE: /l (logging) flag does NOT exist in MakeAppx - using /v (verbose) instead
-                $argString = "pack /v /d `"$effectiveSourcePath`" /p `"$OutputPath`""
+                # pack = create package command
+                # /v = verbose output for better error diagnostics
+                # /d = directory to pack
+                # /p = output package path
+                # /o = overwrite existing (prevents interactive prompts)
+                # /nc = no compression (optional, based on CompressionLevel)
+                # /nv = disable version checking (optional, based on AdditionalOptions)
+                
+                $makeAppxArgs = @(
+                    'pack',
+                    '/v',
+                    '/d', $effectiveSourcePath,
+                    '/p', $OutputPath
+                )
                 
                 # Add compression flag (or disable it)
                 switch ($CompressionLevel) {
-                    'None'      { $argString += ' /nc' }
-                    'Fast'      { $argString += '' }  # Default compression
-                    'Normal'    { $argString += '' }  # Default compression
-                    'Maximum'   { $argString += '' }  # Default compression
-                    default     { $argString += '' }
+                    'None' { 
+                        $makeAppxArgs += '/nc'
+                    }
+                    # Fast, Normal, Maximum use default compression
                 }
                 
                 # Add overwrite to prevent interactive prompts
-                $argString += ' /o'
+                $makeAppxArgs += '/o'
                 
                 # Add additional options
                 if ($AdditionalOptions.ContainsKey('DisableVersioning')) {
-                    $argString += ' /nv'
+                    $makeAppxArgs += '/nv'
                 }
 
-                # Execute
-                Write-AppxLog -Message "Executing: $makeAppxPath $argString" -Level 'Debug'
+                # Log command for diagnostics
+                Write-AppxLog -Message "Executing: $makeAppxPath $($makeAppxArgs -join ' ')" -Level 'Debug'
                 
                 # PRE-FLIGHT DIAGNOSTICS: Check for common MakeAppx failure conditions
                 Write-AppxLog -Message "Running pre-flight diagnostics..." -Level 'Debug'
@@ -467,8 +558,8 @@ function New-AppxPackageInternal {
                 
                 # Check 2: Verify we can actually read critical files
                 $criticalFiles = @('AppxManifest.xml', 'AppxBlockMap.xml', 'AppxSignature.p7x')
-                foreach ($file in $criticalFiles) {
-                    $testPath = Join-Path $effectiveSourcePath $file
+                foreach ($file in @($criticalFiles)) {
+                    $testPath = [System.IO.Path]::Combine($effectiveSourcePath, $file)
                     if (Test-Path -LiteralPath $testPath) {
                         try {
                             $null = Get-Content -LiteralPath $testPath -TotalCount 1 -ErrorAction Stop
@@ -483,7 +574,7 @@ function New-AppxPackageInternal {
                 
                 # Check 3: Verify output directory is writable
                 $outputDir = Split-Path -Path $OutputPath -Parent
-                $testFile = Join-Path $outputDir "AppxBackup_WriteTest_$(New-Guid).tmp"
+                $testFile = [System.IO.Path]::Combine($outputDir, "AppxBackup_WriteTest_$(New-Guid).tmp")
                 try {
                     [void][System.IO.File]::WriteAllText($testFile, "test")
                     Remove-Item -LiteralPath $testFile -Force -ErrorAction SilentlyContinue
@@ -503,14 +594,14 @@ function New-AppxPackageInternal {
                     }
                 }
                 catch {
-                    Write-AppxLog -Message "  [WARN] Could not count files: $_" -Level 'Debug'
+                    Write-AppxLog -Message "  [WARN] Could not count files: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Debug'
                 }
                 
                 Write-AppxLog -Message "Pre-flight checks complete, invoking MakeAppx..." -Level 'Debug'
                 Write-AppxLog -Message "This may take several minutes for large packages..." -Level 'Verbose'
                 
                 $result = Invoke-ProcessSafely -FilePath $makeAppxPath `
-                    -Arguments $argString `
+                    -ArgumentList $makeAppxArgs `
                     -TimeoutSeconds 1800 `
                     -NoWindow
 
@@ -590,7 +681,7 @@ function New-AppxPackageInternal {
                     
                     if ($fullError -match 'invalid manifest|manifest.*error') {
                         $errorAnalysis += "MANIFEST ERROR: AppxManifest.xml contains errors"
-                        $errorAnalysis += "  - Manifest path: $(Join-Path $effectiveSourcePath 'AppxManifest.xml')"
+                        $errorAnalysis += "  - Manifest path: $([System.IO.Path]::Combine($effectiveSourcePath, 'AppxManifest.xml'))"
                         $errorAnalysis += "  - Use Get-AppxManifestData to validate manifest structure"
                     }
                     
@@ -619,7 +710,7 @@ function New-AppxPackageInternal {
                     $errorMsg += ($errorAnalysis -join "`n") + "`n`n"
                     $errorMsg += "=== COMMAND DETAILS ===`n"
                     $errorMsg += "Executable: $makeAppxPath`n"
-                    $errorMsg += "Arguments: $argString`n"
+                    $errorMsg += "Arguments: $($makeAppxArgs -join ' ')`n"
                     $errorMsg += "Source: $effectiveSourcePath`n"
                     $errorMsg += "Output: $OutputPath`n`n"
                     
@@ -696,38 +787,49 @@ function New-AppxPackageInternal {
             return $packageResult
         }
         catch {
-            Write-AppxLog -Message "Package creation failed: $_" -Level 'Error'
+            Write-AppxLog -Message "Package creation failed: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Error'
+            Write-AppxLog -Message "StackTrace: $($_.ScriptStackTrace)" -Level 'Debug'
             throw
         }
         finally {
             # Cleanup temp copy if used
             if ($useTempCopy -and $tempSourcePath -and (Test-Path -LiteralPath $tempSourcePath)) {
                 Write-AppxLog -Message "Cleaning up temporary copy: $tempSourcePath" -Level 'Debug'
-                try {
-                    # Wait briefly to ensure MakeAppx releases file handles
-                    Start-Sleep -Milliseconds 300
-                    
-                    # First attempt: normal cleanup
-                    Remove-Item -LiteralPath $tempSourcePath -Recurse -Force -ErrorAction Stop
-                    Write-AppxLog -Message "Cleanup successful" -Level 'Debug'
-                }
-                catch {
-                    # Files may be locked by MakeAppx or antivirus - try again with delay
-                    Write-AppxLog -Message "First cleanup attempt failed: $_" -Level 'Debug'
-                    Write-AppxLog -Message "Retrying cleanup after delay..." -Level 'Debug'
-                    
-                    Start-Sleep -Seconds 2
-                    
+                
+                # Load cleanup configuration from config
+                $maxCleanupAttempts = Get-AppxDefault 'sleepDelays.maxCleanupAttempts' -Fallback 3
+                $cleanupDelays = Get-AppxDefault 'sleepDelays.cleanupRetryDelaysMilliseconds' -Fallback @(300, 2000, 5000)
+                $cleanupSuccess = $false
+                
+                for ($attempt = 0; $attempt -lt $maxCleanupAttempts; $attempt++) {
                     try {
+                        # Wait before retry (skip on first attempt)
+                        if ($attempt -gt 0) {
+                            $delayMs = $cleanupDelays[$attempt - 1]
+                            Write-AppxLog -Message "Waiting $($delayMs)ms before cleanup attempt $($attempt + 1)/$maxCleanupAttempts..." -Level 'Debug'
+                            Start-Sleep -Milliseconds $delayMs
+                        }
+                        
+                        # Attempt cleanup
                         Remove-Item -LiteralPath $tempSourcePath -Recurse -Force -ErrorAction Stop
-                        Write-AppxLog -Message "Cleanup successful on retry" -Level 'Debug'
+                        $cleanupSuccess = $true
+                        Write-AppxLog -Message "Cleanup successful on attempt $($attempt + 1)" -Level 'Debug'
+                        break
                     }
                     catch {
-                        # Still failed - log warning but don't fail the operation
-                        Write-AppxLog -Message "Failed to cleanup temp directory after retry: $_" -Level 'Warning'
-                        Write-AppxLog -Message "Temp files remain at: $tempSourcePath" -Level 'Warning'
-                        Write-AppxLog -Message "You can manually delete this directory later" -Level 'Info'
+                        Write-AppxLog -Message "Cleanup attempt $($attempt + 1) failed: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Debug'
+                        
+                        if ($attempt -eq ($maxCleanupAttempts - 1)) {
+                            # Final attempt failed - log warning but don't fail the operation
+                            Write-AppxLog -Message "Failed to cleanup temp directory after $maxCleanupAttempts attempts: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Warning'
+                            Write-AppxLog -Message "Temp files remain at: $tempSourcePath" -Level 'Warning'
+                            Write-AppxLog -Message "These files can be manually deleted later or will be cleaned up on next reboot" -Level 'Info'
+                        }
                     }
+                }
+                
+                if ($cleanupSuccess) {
+                    Write-AppxLog -Message "Temporary files cleaned up successfully" -Level 'Debug'
                 }
             }
         }

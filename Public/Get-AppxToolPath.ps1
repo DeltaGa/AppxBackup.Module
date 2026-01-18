@@ -44,7 +44,9 @@ function Get-AppxToolPath {
             }
         }
         catch {
-            Write-Error "Failed to get tool path: $_"
+            $errorMsg = "Failed to get tool path: $_"
+            Write-AppxLog -Message "$errorMsg | StackTrace: $($_.ScriptStackTrace)" -Level 'Error'
+            Write-Warning $errorMsg
             return $null
         }
     }

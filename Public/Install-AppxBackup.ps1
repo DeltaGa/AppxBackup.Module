@@ -120,7 +120,7 @@ process {
         if (-not $CertificatePath -and -not $SkipCertificate.IsPresent) {
             $packageDir = Split-Path -Path $packageFullPath -Parent
             $packageBaseName = [System.IO.Path]::GetFileNameWithoutExtension($packageFullPath)
-            $autoCertPath = Join-Path $packageDir "$packageBaseName.cer"
+            $autoCertPath = [System.IO.Path]::Combine($packageDir, "$packageBaseName.cer")
             
             if (Test-Path -LiteralPath $autoCertPath) {
                 $CertificatePath = $autoCertPath
@@ -154,7 +154,7 @@ process {
             if ($CertStoreLocation -eq 'LocalMachine') {
                 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
                 
-                if (-not $isAdmin) {
+                if ($null -eq $isAdmin) {
                     Write-Host "  WARNING: Not running as Administrator" -ForegroundColor Red
                     Write-Host "  Cannot install to LocalMachine store. Switching to CurrentUser..." -ForegroundColor Yellow
                     $certStorePath = 'Cert:\CurrentUser\Root'
@@ -181,7 +181,8 @@ process {
                 catch {
                     Write-Host "  ERROR: Certificate installation failed" -ForegroundColor Red
                     Write-Host "  Details: $_" -ForegroundColor Red
-                    throw "Certificate installation failed: $_"
+                    Write-AppxLog -Message "Certificate installation failed: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Error'
+                throw "Certificate installation failed: $_"
                 }
             }
         }

@@ -16,8 +16,9 @@ AppxBackup is a **complete 2026 rewrite** of the 2016 original APPX backup scrip
 
 ✅ **Complete Backup-to-Installation Pipeline** - One-command backup, one-command restore  
 ✅ **Automatic Certificate Management** - Self-signed cert creation and system trust  
-✅ **Native Windows SDK Integration** - MakeAppx and SignTool automation  
-✅ **Modern MSIX Support** - Full support for MSIX + legacy APPX formats
+✅ **Native Windows SDK Integration** - MakeAppx and SignTool automation with tool-specific optimization  
+✅ **Modern MSIX Support** - Full support for MSIX + legacy APPX formats  
+✅ **Externalized Configuration** - 298 configuration values in JSON for easy customization
 
 ---
 
@@ -304,6 +305,13 @@ AppxBackup.Module/
 ├── AppxBackup.psm1           # Module loader
 ├── Import-AppxBackup.ps1     # Quick import helper
 │
+├── Config/                   # Externalized configuration (5 total)
+│   ├── ModuleDefaults.json           # Core module constants
+│   ├── MimeTypes.json                # MIME type mappings
+│   ├── ToolConfiguration.json        # Tool-specific settings
+│   ├── WindowsReservedNames.json     # Reserved filenames
+│   └── PackageConfiguration.json     # Package-related constants
+│
 ├── Public/                   # Exported functions (9 total)
 │   ├── Backup-AppxPackage.ps1          # Main backup function
 │   ├── Install-AppxBackup.ps1          # Standalone installer
@@ -315,7 +323,9 @@ AppxBackup.Module/
 │   ├── Test-AppxBackupCompatibility.ps1 # Compatibility check
 │   └── Get-AppxToolPath.ps1            # Tool locator
 │
-├── Private/                  # Internal functions (7 total)
+├── Private/                  # Internal functions (9 total)
+│   ├── Get-AppxConfiguration.ps1       # Configuration loader
+│   ├── Get-AppxDefault.ps1             # Configuration value accessor
 │   ├── Invoke-ProcessSafely.ps1        # Process execution
 │   ├── Get-AppxManifestData.ps1        # Manifest parsing
 │   ├── New-AppxPackageInternal.ps1     # Core packaging logic
@@ -329,7 +339,19 @@ AppxBackup.Module/
 ```
 ---
 
-## Support & Contributing
+### Configuration System
+
+All hardcoded values are externalized to JSON configuration files in the `Config/` directory:
+
+- **ModuleDefaults.json** - Path limits, timeouts, buffer sizes, disk space thresholds, etc.
+- **MimeTypes.json** - Comprehensive MIME type database for Content_Types.xml generation
+- **ToolConfiguration.json** - Tool-specific timeouts, async wait times, exit code interpretation
+- **WindowsReservedNames.json** - Windows reserved filenames for validation
+- **PackageConfiguration.json** - Package extensions, signature files, compression levels, namespaces
+
+---
+
+## Support
 
 ### Getting Help
 

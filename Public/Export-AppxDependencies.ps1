@@ -84,7 +84,7 @@ function Export-AppxDependencies {
         Write-AppxLog -Message "Exporting dependency information" -Level 'Verbose'
         
         # Auto-detect format from extension if not specified
-        if (-not $Format) {
+        if ($null -eq $Format) {
             $extension = [System.IO.Path]::GetExtension($OutputPath).TrimStart('.')
             $Format = switch ($extension.ToUpper()) {
                 'JSON' { 'JSON' }
@@ -118,7 +118,7 @@ function Export-AppxDependencies {
                 # Extract manifest from package file
                 Write-AppxLog -Message "Extracting manifest from package file" -Level 'Verbose'
                 
-                $tempDir = Join-Path $env:TEMP "AppxDepsExport_$(New-Guid)"
+                $tempDir = [System.IO.Path]::Combine($env:TEMP, "AppxDepsExport_$(New-Guid)")
                 [void](New-Item -Path $tempDir -ItemType Directory -Force)
                 
                 Add-Type -AssemblyName 'System.IO.Compression.FileSystem'
@@ -127,11 +127,11 @@ function Export-AppxDependencies {
                 try {
                     $manifestEntry = $archive.Entries | Where-Object { $_.Name -eq 'AppxManifest.xml' } | Select-Object -First 1
                     
-                    if (-not $manifestEntry) {
+                    if ($null -eq $manifestEntry) {
                         throw "AppxManifest.xml not found in package"
                     }
                     
-                    $manifestPath = Join-Path $tempDir 'AppxManifest.xml'
+                    $manifestPath = [System.IO.Path]::Combine($tempDir, 'AppxManifest.xml')
                     [System.IO.Compression.ZipFileExtensions]::ExtractToFile($manifestEntry, $manifestPath, $true)
                     
                     $workingPath = $tempDir
@@ -202,7 +202,7 @@ function Export-AppxDependencies {
                     # Dependencies
                     $dependencies = $xmlDoc.CreateElement('Dependencies')
                     
-                    foreach ($dep in $depResult.Dependencies) {
+                    foreach ($dep in @($depResult.Dependencies)) {
                         $depNode = $xmlDoc.CreateElement('Dependency')
                         $depNode.SetAttribute('Name', $dep.Name)
                         $depNode.SetAttribute('Publisher', $dep.Publisher)
@@ -360,6 +360,7 @@ $(
         }
         catch {
             Write-AppxLog -Message "Failed to export dependencies: $_" -Level 'Error'
+            Write-AppxLog -Message "StackTrace: $($_.ScriptStackTrace)" -Level 'Debug'
             throw
         }
         finally {

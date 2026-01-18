@@ -35,10 +35,11 @@ $script:ModuleRoot = $PSScriptRoot
 $script:LogPath = Join-Path $env:TEMP "AppxBackup_$(Get-Date -Format 'yyyyMMdd').log"
 $script:ToolCache = @{}
 $script:PackageCache = @{}
+$script:ConfigCache = @{}
 
-# Module configuration
+# Module configuration - will be populated from ModuleDefaults.json after functions load
 $script:AppxBackupConfig = @{
-    MaxLogSizeMB = 10
+    MaxLogSizeMB = 10  # Temporary default, will be overridden
     DefaultCertificateValidityYears = 3
     DefaultHashAlgorithm = 'SHA256'
     DefaultKeyLength = 4096
@@ -60,6 +61,8 @@ $script:AppxBackupConfig = @{
 Write-Verbose "Loading private functions..."
 
 $privateFiles = @(
+    'Get-AppxConfiguration.ps1',
+    'Get-AppxDefault.ps1',
     'Invoke-ProcessSafely.ps1',
     'Write-AppxLog.ps1',
     'Get-AppxManifestData.ps1',
@@ -121,6 +124,32 @@ foreach ($file in $publicFiles) {
     else {
         Write-Warning "Public function file not found: $file"
     }
+}
+
+#endregion
+
+#region Initialize Module Configuration from JSON
+
+Write-Verbose "Initializing module configuration from ModuleDefaults.json..."
+
+try {
+    # Load configuration (Get-AppxConfiguration and Get-AppxDefault are now available)
+    $defaults = Get-AppxConfiguration -ConfigName 'ModuleDefaults'
+    
+    # Update AppxBackupConfig with values from JSON
+    $script:AppxBackupConfig['MaxLogSizeMB'] = $defaults.logConfiguration.maxLogSizeMB
+    $script:AppxBackupConfig['DefaultCertificateValidityYears'] = $defaults.certificateDefaults.defaultValidityYears
+    $script:AppxBackupConfig['DefaultHashAlgorithm'] = $defaults.certificateDefaults.hashAlgorithm
+    $script:AppxBackupConfig['DefaultKeyLength'] = $defaults.certificateDefaults.defaultKeyLength
+    $script:AppxBackupConfig['RetryAttempts'] = $defaults.sleepDelays.maxCleanupAttempts
+    $script:AppxBackupConfig['RetryDelaySeconds'] = $defaults.sleepDelays.verificationDelaySeconds
+    $script:AppxBackupConfig['TimeoutSeconds'] = $defaults.timeoutDefaults.processExecutionDefaultSeconds
+    
+    Write-Verbose "Module configuration loaded from ModuleDefaults.json"
+}
+catch {
+    Write-Warning "Failed to load ModuleDefaults.json, using hardcoded fallbacks: $_"
+    # Fallback values already set in initial $script:AppxBackupConfig declaration
 }
 
 #endregion

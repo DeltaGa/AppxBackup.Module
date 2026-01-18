@@ -153,7 +153,7 @@ function Backup-AppxPackage {
             
             try {
                 $makeAppxPath = Test-AppxToolAvailability -ToolName 'MakeAppx' -ThrowOnError:$false
-                if (-not $makeAppxPath) {
+                if ($null -eq $makeAppxPath) {
                     $sdkMissing += 'MakeAppx.exe'
                 }
             }
@@ -163,7 +163,7 @@ function Backup-AppxPackage {
             
             try {
                 $signToolPath = Test-AppxToolAvailability -ToolName 'SignTool' -ThrowOnError:$false
-                if (-not $signToolPath) {
+                if ($null -eq $signToolPath) {
                     $sdkMissing += 'SignTool.exe'
                 }
             }
@@ -221,7 +221,7 @@ Windows SDK is MANDATORY for reliable APPX backup operations.
             $outputPath = ConvertTo-SecureFilePath -Path $OutputPath -PathType Directory -CreateIfMissing
             
             # Find manifest
-            $manifestPath = Join-Path $packagePath 'AppxManifest.xml'
+            $manifestPath = [System.IO.Path]::Combine($packagePath, 'AppxManifest.xml')
             if (-not (Test-Path -LiteralPath $manifestPath)) {
                 throw "AppxManifest.xml not found in package directory: $packagePath"
             }
@@ -241,8 +241,8 @@ Windows SDK is MANDATORY for reliable APPX backup operations.
 
             # Generate output filename
             $baseFileName = Split-Path -Path $packagePath -Leaf
-            $packageOutputPath = Join-Path $outputPath "$baseFileName.appx"
-            $certOutputPath = Join-Path $outputPath "$baseFileName.cer"
+            $packageOutputPath = [System.IO.Path]::Combine($outputPath, "$baseFileName.appx")
+            $certOutputPath = [System.IO.Path]::Combine($outputPath, "$baseFileName.cer")
 
             # Check for existing files
             if (-not $Force.IsPresent) {
@@ -352,7 +352,7 @@ Windows SDK is MANDATORY for reliable APPX backup operations.
                         }
                     }
                     catch {
-                        Write-AppxLog -Message "Failed to automatically install certificate: $_" -Level 'Warning'
+                        Write-AppxLog -Message "Failed to automatically install certificate: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Warning'
                         Write-AppxLog -Message "You must manually install the certificate before the package can be installed" -Level 'Warning'
                         $certInstalled = $false
                     }
@@ -386,14 +386,14 @@ Windows SDK is MANDATORY for reliable APPX backup operations.
                         
                         if ($makeAppxPath) {
                             $sdkDir = Split-Path -Path $makeAppxPath -Parent
-                            $signToolTest = Join-Path $sdkDir 'signtool.exe'
+                            $signToolTest = [System.IO.Path]::Combine($sdkDir, 'signtool.exe')
                             if (Test-Path -LiteralPath $signToolTest) {
                                 $signToolPath = $signToolTest
                             }
                         }
                         
                         # Fallback: search PATH
-                        if (-not $signToolPath) {
+                        if ($null -eq $signToolPath) {
                             $signToolCmd = Get-Command 'signtool.exe' -ErrorAction SilentlyContinue | 
                                 Select-Object -First 1
                             if ($signToolCmd) {
@@ -401,23 +401,30 @@ Windows SDK is MANDATORY for reliable APPX backup operations.
                             }
                         }
                         
-                        if (-not $signToolPath) {
+                        if ($null -eq $signToolPath) {
                             throw "SignTool.exe not found. Install Windows SDK to sign APPX packages."
                         }
                         
                         Write-AppxLog -Message "Using SignTool: $signToolPath" -Level 'Debug'
                         
                         # Build SignTool command for APPX signing
+                        # sign = sign command
                         # /fd = file digest algorithm (required)
                         # /sha1 = certificate thumbprint
-                        # /f = certificate file (we use /sha1 instead since cert is in store)
-                        $signArgs = "sign /fd SHA256 /sha1 $($cert.Thumbprint) /v `"$packageOutputPath`""
+                        # /v = verbose output
+                        $signArgs = @(
+                            'sign',
+                            '/fd', 'SHA256',
+                            '/sha1', $cert.Thumbprint,
+                            '/v',
+                            $packageOutputPath
+                        )
                         
-                        Write-AppxLog -Message "SignTool command: $signToolPath $signArgs" -Level 'Debug'
+                        Write-AppxLog -Message "SignTool command: $signToolPath $($signArgs -join ' ')" -Level 'Debug'
                         
                         # Execute SignTool
                         $signResult = Invoke-ProcessSafely -FilePath $signToolPath `
-                            -Arguments $signArgs `
+                            -ArgumentList $signArgs `
                             -TimeoutSeconds 300 `
                             -NoWindow
                         
@@ -440,7 +447,8 @@ Windows SDK is MANDATORY for reliable APPX backup operations.
                         }
                     }
                     catch {
-                        throw "Failed to sign package: $_"
+                        Write-AppxLog -Message "Failed to sign package: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Error'
+                throw "Failed to sign package: $_"
                     }
                 }
             }
@@ -499,7 +507,7 @@ Windows SDK is MANDATORY for reliable APPX backup operations.
         }
         catch {
             Write-Progress -Id $progressId -Activity "Backing up APPX Package" -Completed
-            Write-AppxLog -Message "Backup failed: $_" -Level 'Error'
+            Write-AppxLog -Message "Backup failed: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Error'
             Write-AppxLog -Message "Stack trace: $($_.ScriptStackTrace)" -Level 'Debug'
             
             # Cleanup on failure
