@@ -350,7 +350,7 @@ When reporting issues, include:
 
 ### Original Repository
 
-[**mjmeans/Appx-Backup**](https://github.com/mjmeans/Appx-Backup): PowerShell script to backup an installed Windows Store App to an installable Appx file. (n.d.). *GitHub*.
+[**mjmeans/Appx-Backup**](https://github.com/mjmeans/Appx-Backup): PowerShell script to backup an installed Windows Store App to an installable Appx file. (2016). *GitHub*.
 
 ---
 
