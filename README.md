@@ -8,7 +8,7 @@
 
 ---
 
-## 🎯 Overview
+## Overview
 
 AppxBackup is a **complete 2026 rewrite** of the 2016 original APPX backup script, transformed into a production-grade PowerShell module. This toolkit provides **zero-dependency**, **end-to-end** Windows Store/MSIX application backup and restoration.
 
@@ -156,17 +156,17 @@ Install-AppxBackup -PackagePath "D:\Backups\WorkMate_7.5.4.0_x64.appx"
 
 ### Public Functions
 
-| Function | Description | Status |
-|----------|-------------|--------|
-| **`Backup-AppxPackage`** | Complete backup with cert creation and signing | ✅ Production Ready |
-| **`Install-AppxBackup`** | Standalone installation with auto-cert handling | ✅ Production Ready |
-| **`New-AppxBackupCertificate`** | Create self-signed certificates (4096-bit RSA) | ✅ Production Ready |
-| **`Restore-AppxPackage`** | Restore from backup with dependency resolution | ✅ Production Ready |
-| **`Get-AppxBackupInfo`** | Analyze backup packages without installing | ✅ Production Ready |
-| **`Export-AppxDependencies`** | Extract and document package dependencies | ✅ Production Ready |
-| **`Test-AppxPackageIntegrity`** | Validate package structure and signatures | ✅ Production Ready |
-| **`Test-AppxBackupCompatibility`** | Check system compatibility before restore | ✅ Production Ready |
-| **`Get-AppxToolPath`** | Locate Windows SDK tools (MakeAppx, SignTool) | ✅ Production Ready |
+| Function | Description |
+|----------|-------------|
+| **`Backup-AppxPackage`** | Complete backup with cert creation and signing |
+| **`Install-AppxBackup`** | Standalone installation with auto-cert handling |
+| **`New-AppxBackupCertificate`** | Create self-signed certificates (4096-bit RSA) |
+| **`Restore-AppxPackage`** | Restore from backup with dependency resolution |
+| **`Get-AppxBackupInfo`** | Analyze backup packages without installing |
+| **`Export-AppxDependencies`** | Extract and document package dependencies |
+| **`Test-AppxPackageIntegrity`** | Validate package structure and signatures |
+| **`Test-AppxBackupCompatibility`** | Check system compatibility before restore |
+| **`Get-AppxToolPath`** | Locate Windows SDK tools (MakeAppx, SignTool) |
 
 ### Private Functions (Internal)
 
