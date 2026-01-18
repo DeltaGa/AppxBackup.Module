@@ -10,7 +10,7 @@
 
 ## Overview
 
-AppxBackup is a **complete 2026 rewrite** of the 2016 original APPX backup script, transformed into a production-grade PowerShell module. This toolkit provides **zero-dependency**, **end-to-end** Windows Store/MSIX application backup and restoration.
+AppxBackup is a **complete 2026 rewrite** of the 2016 original APPX backup script, transformed into a production-grade PowerShell module. This toolkit provides **end-to-end** Windows Store/MSIX application backup and restoration.
 
 ### Key Capabilities
 
@@ -343,6 +343,14 @@ When reporting issues, include:
 2. Windows version (`Get-ComputerInfo | Select OSName, OSVersion`)
 3. Error message and stack trace
 4. Log file from `$env:TEMP\AppxBackup_*.log`
+
+---
+
+## Citations
+
+### Original Repository
+
+[**mjmeans/Appx-Backup**](https://github.com/mjmeans/Appx-Backup): PowerShell script to backup an installed Windows Store App to an installable Appx file. (n.d.). *GitHub*.
 
 ---
 
