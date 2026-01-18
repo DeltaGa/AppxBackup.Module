@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Tool Configuration Database",
   "description": "Tool-specific timeout and async wait configurations for external process execution",
-  "version": "2.0.0",
+  "version": "1.0.0",
   "defaultConfiguration": {
     "timeoutSeconds": 3600,
     "asyncWaitMilliseconds": 1000

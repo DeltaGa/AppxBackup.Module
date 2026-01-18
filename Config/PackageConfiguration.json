@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Package Configuration Database",
   "description": "APPX/MSIX package constants and configuration data",
-  "version": "2.0.0",
+  "version": "1.0.0",
   "packageExtensions": {
     "valid": [".appx", ".msix", ".appxbundle", ".msixbundle"],
     "single": [".appx", ".msix"],

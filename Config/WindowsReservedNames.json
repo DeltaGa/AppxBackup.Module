@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Windows Reserved Filenames Database",
   "description": "Windows reserved device names that cannot be used as filenames",
-  "version": "2.0.0",
+  "version": "1.0.0",
   "reference": "https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file",
   "reservedNames": [
     "CON",

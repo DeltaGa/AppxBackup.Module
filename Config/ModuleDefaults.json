@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "AppxBackup Module Defaults Configuration",
   "description": "Centralized configuration for all module constants, thresholds, timeouts, and default values",
-  "version": "2.0.0",
+  "version": "1.0.0",
   "pathDefaults": {
     "maxPathLength": 260,
     "maxPathLengthWithLongPathsEnabled": 32767,
