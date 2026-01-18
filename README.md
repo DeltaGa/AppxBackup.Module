@@ -171,6 +171,8 @@ Install-AppxBackup -PackagePath "D:\Backups\WorkMate_7.5.4.0_x64.appx"
 
 ### Private Functions (Internal)
 
+- `Get-AppxConfiguration` - Configuration loader from JSON files
+- `Get-AppxDefault` - Configuration value accessor with hierarchical fallback
 - `Invoke-ProcessSafely` - Robust external process execution with timeout
 - `Get-AppxManifestData` - XML manifest parsing with namespace handling
 - `New-AppxPackageInternal` - Core packaging logic with multi-tier fallback
