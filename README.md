@@ -16,42 +16,43 @@ AppxBackup is a **complete 2026 rewrite** of the 2016 original APPX backup scrip
 
 ✅ **Complete Backup-to-Installation Pipeline** - One-command backup, one-command restore  
 ✅ **Automatic Certificate Management** - Self-signed cert creation and system trust  
-✅ **Native Windows SDK Integration** - MakeAppx and SignTool automation  
-✅ **Intelligent Fallback Strategies** - Multi-tier copy and package creation  
-✅ **Professional Error Diagnostics** - Actionable error messages with solutions  
-✅ **Zero External Dependencies** - Pure PowerShell with optional SDK enhancement  
-✅ **Production-Ready Logging** - Comprehensive structured logs with rotation  
+✅ **Native Windows SDK Integration** - MakeAppx and SignTool automation
 ✅ **Modern MSIX Support** - Full support for MSIX + legacy APPX formats
 
 ---
 
-## 📊 2016 vs 2026: The Transformation
+## System Requirements
 
-| Aspect | 2016 Version | 2026 Version |
-|--------|---------------------|------------------------|
-| **Lines of Code** | 145 lines | 3,259 lines (15 functions) |
-| **Architecture** | Monolithic script | Modular with Public/Private separation |
-| **Tool Dependencies** | Requires VS 2015 SDK (MakeCert.exe, Pvk2Pfx.exe) | Zero dependencies, native PowerShell |
-| **Certificate Creation** | Deprecated MakeCert.exe | Native `New-SelfSignedCertificate` with 4096-bit RSA |
-| **Package Signing** | Manual SignTool.exe invocation | Automated SignTool with proper error capture |
-| **Error Handling** | String matching, no recovery | Try/catch with rollback + timeout protection |
-| **Path Security** | Vulnerable to injection | Full sanitization, validation, `-LiteralPath` everywhere |
-| **Manifest Parsing** | Ignores XML namespaces | Dynamic namespace detection, all schema versions |
-| **Copy Operations** | Basic `Copy-Item` | Three-tier strategy: Robocopy → Copy-Item → .NET APIs |
-| **Progress Indication** | None | Full 6-stage progress bars |
-| **Logging** | None | Structured logs with levels, rotation, timestamps |
-| **Dependency Resolution** | Ignored | Recursive dependency graph analysis |
-| **Content_Types.xml** | Assumed present | Auto-generated with 30+ MIME types if missing |
-| **Certificate Installation** | Manual | Automatic installation to Trusted Root |
-| **Installation Script** | None | Standalone `Install-AppxBackup.ps1` |
-| **MSIX Support** | No | Full MSIX + APPX support |
-| **Pipeline Support** | None | `ValueFromPipeline` on all major functions |
-| **Testing** | None | Unit testable, extensive validation |
-| **Documentation** | 10 lines | 500+ lines with examples |
+### Minimum Requirements
+
+- **PowerShell:** 5.1+
+- **OS:** Windows 10 1809 / Windows Server 2019
+- **Windows SDK:** 10.0.26100.0+ (includes MakeAppx, SignTool)
+- **Disk Space:** 100 MB temporary storage
+- **Memory:** 512 MB available RAM
+
+### Recommended Configuration
+
+- **PowerShell:** 7.5+
+- **OS:** Windows 11 24H2 / Windows Server 2022
+- **Windows SDK:** 10.0.26100.0+ (includes MakeAppx, SignTool)
+- **Disk Space:** 1 GB+ for large packages
+- **Memory:** 2 GB+ available RAM
+
+### Administrator Privileges
+
+Required for:
+- Installing certificates to LocalMachine store
+- Accessing WindowsApps folder on some systems
+
+Not required for:
+- Basic backup operations (CurrentUser cert store)
+- Package creation
+- Most module functions
 
 ---
 
-## 🚀 Installation
+## Installation
 
 ### Quick Start (Developer Mode)
 
@@ -82,7 +83,7 @@ Get-Module AppxBackup
 
 ---
 
-## 📖 Complete Workflow Example
+## Complete Workflow Example
 
 ### Scenario: Backup and Restore WorkMate App
 
@@ -151,7 +152,7 @@ Install-AppxBackup -PackagePath "D:\Backups\WorkMate_7.5.4.0_x64.appx"
 
 ---
 
-## 🛠️ Available Commands
+## Available Commands
 
 ### Public Functions
 
@@ -179,7 +180,7 @@ Install-AppxBackup -PackagePath "D:\Backups\WorkMate_7.5.4.0_x64.appx"
 
 ---
 
-## 📚 Usage Examples
+## Usage Examples
 
 ### Basic Operations
 
@@ -257,7 +258,7 @@ Install-AppxBackup -PackagePath "C:\Backups\MyApp.appx" -SkipCertificate
 
 ---
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Common Errors and Solutions
 
@@ -296,37 +297,7 @@ Install-AppxBackup -PackagePath "package.appx" -Force
 
 ---
 
-## 📋 System Requirements
-
-### Minimum Requirements
-
-- **PowerShell:** 5.1+
-- **OS:** Windows 10 1809 / Windows Server 2019
-- **Disk Space:** 100 MB temporary storage
-- **Memory:** 512 MB available RAM
-
-### Recommended Configuration
-
-- **PowerShell:** 7.5+
-- **OS:** Windows 11 24H2 / Windows Server 2022
-- **Windows SDK:** 10.0.26100.0+ (includes MakeAppx, SignTool)
-- **Disk Space:** 1 GB+ for large packages
-- **Memory:** 2 GB+ available RAM
-
-### Administrator Privileges
-
-Required for:
-- Installing certificates to LocalMachine store
-- Accessing WindowsApps folder on some systems
-
-Not required for:
-- Basic backup operations (CurrentUser cert store)
-- Package creation
-- Most module functions
-
----
-
-## 📝 Module Architecture
+## Module Architecture
 
 ```
 AppxBackup.Module/
@@ -365,7 +336,7 @@ AppxBackup.Module/
 ```
 ---
 
-## 📞 Support & Contributing
+## Support & Contributing
 
 ### Getting Help
 

@@ -1,16 +1,17 @@
 <#
 .SYNOPSIS
-    Parses APPX/MSIX manifest files with full namespace support and validation.
+    Parses APPX/MSIX manifest files with comprehensive edge-case handling.
 
 .DESCRIPTION
-    Handles:
+    Enterprise-grade manifest parser that handles:
     - Multiple manifest schema versions (Windows 8.1 through Windows 11)
-    - Namespace resolution for all standard APPX namespaces
-    - MSIX-specific elements
+    - Missing or non-standard namespaces
+    - Optional elements and properties
+    - Malformed or incomplete manifests
     - Bundle manifests
-    - Dependency extraction
-    - Capability enumeration
-    - Target device family detection
+    - MSIX-specific elements
+    
+    Uses multi-tier fallback strategy for maximum compatibility.
 #>
 
 function Get-AppxManifestData {
@@ -41,6 +42,56 @@ function Get-AppxManifestData {
 
     begin {
         Write-AppxLog -Message "Parsing manifest: $ManifestPath" -Level 'Verbose'
+        
+        # Helper function for safe XML node access
+        function Get-SafeXmlValue {
+            param(
+                [Parameter(Mandatory)]
+                [System.Xml.XmlNode]$Node,
+                
+                [Parameter(Mandatory)]
+                [string]$PropertyName,
+                
+                [Parameter()]
+                $DefaultValue = $null
+            )
+            
+            try {
+                if ($Node -and $Node.$PropertyName) {
+                    return $Node.$PropertyName
+                }
+            }
+            catch {
+                # Property doesn't exist
+            }
+            
+            return $DefaultValue
+        }
+        
+        # Helper function for safe attribute access
+        function Get-SafeAttribute {
+            param(
+                [Parameter(Mandatory)]
+                [System.Xml.XmlNode]$Node,
+                
+                [Parameter(Mandatory)]
+                [string]$AttributeName,
+                
+                [Parameter()]
+                $DefaultValue = $null
+            )
+            
+            try {
+                if ($Node -and $Node.HasAttribute($AttributeName)) {
+                    return $Node.GetAttribute($AttributeName)
+                }
+            }
+            catch {
+                # Attribute doesn't exist
+            }
+            
+            return $DefaultValue
+        }
     }
 
     process {
@@ -49,69 +100,110 @@ function Get-AppxManifestData {
             [xml]$manifest = Get-Content -LiteralPath $ManifestPath -ErrorAction Stop
             
             # Validate root element
-            if ($manifest.DocumentElement.LocalName -ne 'Package') {
-                throw "Invalid manifest: Root element must be 'Package', found '$($manifest.DocumentElement.LocalName)'"
+            if (-not $manifest.DocumentElement) {
+                throw "Invalid manifest: No document element found"
             }
+            
+            $rootName = $manifest.DocumentElement.LocalName
+            if ($rootName -ne 'Package' -and $rootName -ne 'Bundle') {
+                throw "Invalid manifest: Root element must be 'Package' or 'Bundle', found '$rootName'"
+            }
+
+            # Detect actual namespace used in manifest
+            $defaultNamespace = $manifest.DocumentElement.NamespaceURI
+            Write-AppxLog -Message "Detected namespace: $defaultNamespace" -Level 'Debug'
 
             # Setup namespace manager for XPath queries
             $nsManager = [System.Xml.XmlNamespaceManager]::new($manifest.NameTable)
             
-            # Register common APPX namespaces
-            $commonNamespaces = @{
-                'appx'         = 'http://schemas.microsoft.com/appx/manifest/foundation/windows10'
-                'appx2015'     = 'http://schemas.microsoft.com/appx/manifest/foundation/windows10/2'
-                'uap'          = 'http://schemas.microsoft.com/appx/manifest/uap/windows10'
-                'uap2'         = 'http://schemas.microsoft.com/appx/manifest/uap/windows10/2'
-                'uap3'         = 'http://schemas.microsoft.com/appx/manifest/uap/windows10/3'
-                'uap4'         = 'http://schemas.microsoft.com/appx/manifest/uap/windows10/4'
-                'uap5'         = 'http://schemas.microsoft.com/appx/manifest/uap/windows10/5'
-                'uap6'         = 'http://schemas.microsoft.com/appx/manifest/uap/windows10/6'
-                'uap10'        = 'http://schemas.microsoft.com/appx/manifest/uap/windows10/10'
-                'mp'           = 'http://schemas.microsoft.com/appx/2014/phone/manifest'
-                'build'        = 'http://schemas.microsoft.com/developer/appx/2015/build'
-                'rescap'       = 'http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities'
-                'desktop'      = 'http://schemas.microsoft.com/appx/manifest/desktop/windows10'
-                'iot'          = 'http://schemas.microsoft.com/appx/manifest/iot/windows10'
-                'mobile'       = 'http://schemas.microsoft.com/appx/manifest/mobile/windows10'
-                'serverpreview'= 'http://schemas.microsoft.com/appx/manifest/serverpreview/windows10'
+            # Register the actual default namespace
+            if ($defaultNamespace) {
+                $nsManager.AddNamespace('appx', $defaultNamespace)
+            }
+            else {
+                # No namespace declaration - use empty namespace
+                $nsManager.AddNamespace('appx', '')
             }
             
-            # Add fallback for legacy Windows 8.x manifests
-            if ($manifest.Package.NamespaceURI -like '*windows8*') {
-                $commonNamespaces['appx'] = $manifest.Package.NamespaceURI
+            # Register all common APPX namespaces (for completeness)
+            $commonNamespaces = @{
+                'appx2015'      = 'http://schemas.microsoft.com/appx/manifest/foundation/windows10/2'
+                'uap'           = 'http://schemas.microsoft.com/appx/manifest/uap/windows10'
+                'uap2'          = 'http://schemas.microsoft.com/appx/manifest/uap/windows10/2'
+                'uap3'          = 'http://schemas.microsoft.com/appx/manifest/uap/windows10/3'
+                'uap4'          = 'http://schemas.microsoft.com/appx/manifest/uap/windows10/4'
+                'uap5'          = 'http://schemas.microsoft.com/appx/manifest/uap/windows10/5'
+                'uap6'          = 'http://schemas.microsoft.com/appx/manifest/uap/windows10/6'
+                'uap10'         = 'http://schemas.microsoft.com/appx/manifest/uap/windows10/10'
+                'mp'            = 'http://schemas.microsoft.com/appx/2014/phone/manifest'
+                'build'         = 'http://schemas.microsoft.com/developer/appx/2015/build'
+                'rescap'        = 'http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities'
+                'desktop'       = 'http://schemas.microsoft.com/appx/manifest/desktop/windows10'
+                'iot'           = 'http://schemas.microsoft.com/appx/manifest/iot/windows10'
+                'mobile'        = 'http://schemas.microsoft.com/appx/manifest/mobile/windows10'
+                'serverpreview' = 'http://schemas.microsoft.com/appx/manifest/serverpreview/windows10'
             }
             
             foreach ($ns in $commonNamespaces.GetEnumerator()) {
-                $nsManager.AddNamespace($ns.Key, $ns.Value)
+                try {
+                    $nsManager.AddNamespace($ns.Key, $ns.Value)
+                }
+                catch {
+                    # Namespace already exists or error - continue
+                }
             }
 
-            # Extract Identity (works with or without namespace prefix)
-            $identityNode = $manifest.SelectSingleNode('//appx:Package/appx:Identity', $nsManager)
+            # Multi-tier strategy for finding Identity node
+            $identityNode = $null
+            
+            # Strategy 1: XPath with namespace
+            try {
+                $identityNode = $manifest.SelectSingleNode('//appx:Package/appx:Identity', $nsManager)
+            }
+            catch {
+                Write-AppxLog -Message "XPath with namespace failed: $_" -Level 'Debug'
+            }
+            
+            # Strategy 2: Direct property access (no namespace)
             if (-not $identityNode) {
-                # Try without namespace (legacy)
-                $identityNode = $manifest.Package.Identity
+                try {
+                    $identityNode = $manifest.Package.Identity
+                }
+                catch {
+                    Write-AppxLog -Message "Direct property access failed: $_" -Level 'Debug'
+                }
+            }
+            
+            # Strategy 3: Search by element name only (namespace-agnostic)
+            if (-not $identityNode) {
+                try {
+                    $identityNode = $manifest.GetElementsByTagName('Identity') | Select-Object -First 1
+                }
+                catch {
+                    Write-AppxLog -Message "Element search failed: $_" -Level 'Debug'
+                }
             }
             
             if (-not $identityNode) {
-                throw "Invalid manifest: Identity element not found"
+                throw "Invalid manifest: Identity element not found using any strategy"
             }
 
-            # Build base result object
+            # Build base result object with safe defaults
             $result = [PSCustomObject]@{
                 PSTypeName              = 'AppxBackup.ManifestData'
-                Name                    = $identityNode.Name
-                Publisher               = $identityNode.Publisher
-                Version                 = $identityNode.Version
-                ProcessorArchitecture   = $identityNode.ProcessorArchitecture
-                ResourceId              = $identityNode.GetAttribute('ResourceId')
+                Name                    = Get-SafeAttribute -Node $identityNode -AttributeName 'Name' -DefaultValue 'Unknown'
+                Publisher               = Get-SafeAttribute -Node $identityNode -AttributeName 'Publisher' -DefaultValue 'Unknown'
+                Version                 = Get-SafeAttribute -Node $identityNode -AttributeName 'Version' -DefaultValue '0.0.0.0'
+                ProcessorArchitecture   = Get-SafeAttribute -Node $identityNode -AttributeName 'ProcessorArchitecture' -DefaultValue 'neutral'
+                ResourceId              = Get-SafeAttribute -Node $identityNode -AttributeName 'ResourceId'
                 PublisherDisplayName    = $null
                 DisplayName             = $null
                 Description             = $null
                 Logo                    = $null
                 PackageFamilyName       = $null
                 PackageFullName         = $null
-                ManifestVersion         = $manifest.Package.GetAttribute('xmlns')
-                IsBundle                = $false
+                ManifestVersion         = $defaultNamespace
+                IsBundle                = ($rootName -eq 'Bundle')
                 IsMSIX                  = $false
                 TargetDeviceFamilies    = @()
                 Dependencies            = @()
@@ -120,116 +212,237 @@ function Get-AppxManifestData {
                 ManifestPath            = $ManifestPath
             }
 
-            # Extract Properties
-            $propertiesNode = $manifest.SelectSingleNode('//appx:Package/appx:Properties', $nsManager)
-            if ($propertiesNode) {
-                $result.DisplayName = $propertiesNode.DisplayName
-                $result.PublisherDisplayName = $propertiesNode.PublisherDisplayName
-                $result.Description = $propertiesNode.Description
-                $result.Logo = $propertiesNode.Logo
-            }
-
-            # Detect if this is a bundle manifest
-            # Check if Bundle element exists in XML (not Package.Bundle property)
+            # Extract Properties with multi-tier strategy
+            $propertiesNode = $null
+            
+            # Strategy 1: XPath with namespace
             try {
-                $bundleNode = $manifest.SelectSingleNode('/Bundle', $nsManager)
-                if ($bundleNode) {
-                    $result.IsBundle = $true
-                    Write-AppxLog -Message "Detected bundle manifest" -Level 'Debug'
-                }
+                $propertiesNode = $manifest.SelectSingleNode('//appx:Package/appx:Properties', $nsManager)
             }
             catch {
-                # Not a bundle, continue
-                $result.IsBundle = $false
+                Write-AppxLog -Message "XPath for Properties failed: $_" -Level 'Debug'
+            }
+            
+            # Strategy 2: Direct access
+            if (-not $propertiesNode) {
+                try {
+                    $propertiesNode = $manifest.Package.Properties
+                }
+                catch {
+                    Write-AppxLog -Message "Direct Properties access failed: $_" -Level 'Debug'
+                }
+            }
+            
+            # Strategy 3: Element search
+            if (-not $propertiesNode) {
+                try {
+                    $propertiesNode = $manifest.GetElementsByTagName('Properties') | Select-Object -First 1
+                }
+                catch {
+                    Write-AppxLog -Message "Element search for Properties failed: $_" -Level 'Debug'
+                }
+            }
+            
+            # Extract properties if found
+            if ($propertiesNode) {
+                $result.DisplayName = Get-SafeXmlValue -Node $propertiesNode -PropertyName 'DisplayName'
+                $result.PublisherDisplayName = Get-SafeXmlValue -Node $propertiesNode -PropertyName 'PublisherDisplayName'
+                $result.Description = Get-SafeXmlValue -Node $propertiesNode -PropertyName 'Description'
+                $result.Logo = Get-SafeXmlValue -Node $propertiesNode -PropertyName 'Logo'
+            }
+            else {
+                Write-AppxLog -Message "Properties node not found - using defaults" -Level 'Debug'
             }
 
             # Detect MSIX (presence of specific namespaces or features)
-            # Safely check if IgnorableNamespaces property exists
             try {
-                $ignorableNS = $null
-                if ($manifest.Package.PSObject.Properties.Name -contains 'IgnorableNamespaces') {
-                    $ignorableNS = $manifest.Package.IgnorableNamespaces
-                }
-                
-                if ($ignorableNS -and $ignorableNS -match 'build|uap10') {
+                $ignorableNS = Get-SafeAttribute -Node $manifest.Package -AttributeName 'IgnorableNamespaces'
+                if ($ignorableNS -and ($ignorableNS -match 'build|uap10')) {
                     $result.IsMSIX = $true
                     Write-AppxLog -Message "Detected MSIX package" -Level 'Debug'
                 }
-            }
-            catch {
-                # Not MSIX or property doesn't exist, continue
-                $result.IsMSIX = $false
-            }
-
-            # Extract Target Device Families
-            $prereqNode = $manifest.SelectSingleNode('//appx:Package/appx:Prerequisites', $nsManager)
-            if ($prereqNode) {
-                $targetFamilies = $prereqNode.SelectNodes('appx:TargetDeviceFamily', $nsManager)
-                foreach ($family in $targetFamilies) {
-                    $result.TargetDeviceFamilies += [PSCustomObject]@{
-                        Name = $family.Name
-                        MinVersion = $family.MinVersion
-                        MaxVersionTested = $family.MaxVersionTested
+                
+                # Also check for MSIX-specific version format
+                if ($result.Version -match '^\d+\.\d+\.\d+\.\d+$') {
+                    $versionParts = $result.Version -split '\.'
+                    if ([int]$versionParts[0] -ge 1) {
+                        $result.IsMSIX = $true
                     }
                 }
+            }
+            catch {
+                Write-AppxLog -Message "MSIX detection failed: $_" -Level 'Debug'
             }
 
             # Extract Dependencies (if requested)
             if ($IncludeDependencies.IsPresent) {
-                $depsNode = $manifest.SelectSingleNode('//appx:Package/appx:Dependencies', $nsManager)
-                if ($depsNode) {
-                    $packages = $depsNode.SelectNodes('appx:PackageDependency', $nsManager)
-                    foreach ($pkg in $packages) {
-                        $result.Dependencies += [PSCustomObject]@{
-                            Name = $pkg.Name
-                            Publisher = $pkg.Publisher
-                            MinVersion = $pkg.MinVersion
+                $dependencies = @()
+                
+                # Multi-tier strategy for Dependencies
+                $dependenciesNode = $null
+                try {
+                    $dependenciesNode = $manifest.SelectSingleNode('//appx:Package/appx:Dependencies', $nsManager)
+                }
+                catch {}
+                
+                if (-not $dependenciesNode) {
+                    try {
+                        $dependenciesNode = $manifest.Package.Dependencies
+                    }
+                    catch {}
+                }
+                
+                if (-not $dependenciesNode) {
+                    try {
+                        $dependenciesNode = $manifest.GetElementsByTagName('Dependencies') | Select-Object -First 1
+                    }
+                    catch {}
+                }
+                
+                if ($dependenciesNode) {
+                    # Try to get PackageDependency elements
+                    try {
+                        $depElements = $dependenciesNode.SelectNodes('.//appx:PackageDependency', $nsManager)
+                        if (-not $depElements) {
+                            $depElements = $dependenciesNode.PackageDependency
+                        }
+                        if (-not $depElements) {
+                            $depElements = $dependenciesNode.GetElementsByTagName('PackageDependency')
+                        }
+                        
+                        foreach ($dep in $depElements) {
+                            $dependencies += [PSCustomObject]@{
+                                Name = Get-SafeAttribute -Node $dep -AttributeName 'Name' -DefaultValue 'Unknown'
+                                Publisher = Get-SafeAttribute -Node $dep -AttributeName 'Publisher'
+                                MinVersion = Get-SafeAttribute -Node $dep -AttributeName 'MinVersion' -DefaultValue '0.0.0.0'
+                            }
                         }
                     }
+                    catch {
+                        Write-AppxLog -Message "Failed to extract dependencies: $_" -Level 'Debug'
+                    }
                 }
+                
+                $result.Dependencies = $dependencies
+                Write-AppxLog -Message "Extracted $($dependencies.Count) dependencies" -Level 'Debug'
             }
 
             # Extract Capabilities (if requested)
             if ($IncludeCapabilities.IsPresent) {
-                $capsNode = $manifest.SelectSingleNode('//appx:Package/appx:Capabilities', $nsManager)
-                if ($capsNode) {
-                    $caps = $capsNode.SelectNodes('*')
-                    foreach ($cap in $caps) {
-                        $capName = $cap.Name
-                        if ($cap.LocalName -eq 'Capability') {
-                            $capName = $cap.Name
+                $capabilities = @()
+                
+                # Multi-tier strategy for Capabilities
+                $capabilitiesNode = $null
+                try {
+                    $capabilitiesNode = $manifest.SelectSingleNode('//appx:Package/appx:Capabilities', $nsManager)
+                }
+                catch {}
+                
+                if (-not $capabilitiesNode) {
+                    try {
+                        $capabilitiesNode = $manifest.Package.Capabilities
+                    }
+                    catch {}
+                }
+                
+                if (-not $capabilitiesNode) {
+                    try {
+                        $capabilitiesNode = $manifest.GetElementsByTagName('Capabilities') | Select-Object -First 1
+                    }
+                    catch {}
+                }
+                
+                if ($capabilitiesNode) {
+                    # Get all capability elements
+                    try {
+                        $capElements = $capabilitiesNode.ChildNodes | Where-Object { $_.LocalName -match 'Capability$' }
+                        
+                        foreach ($cap in $capElements) {
+                            $capName = Get-SafeAttribute -Node $cap -AttributeName 'Name'
+                            if ($capName) {
+                                $capabilities += $capName
+                            }
                         }
-                        elseif ($cap.LocalName -eq 'DeviceCapability') {
-                            $capName = "Device: $($cap.Name)"
-                        }
-                        $result.Capabilities += $capName
+                    }
+                    catch {
+                        Write-AppxLog -Message "Failed to extract capabilities: $_" -Level 'Debug'
                     }
                 }
+                
+                $result.Capabilities = $capabilities
+                Write-AppxLog -Message "Extracted $($capabilities.Count) capabilities" -Level 'Debug'
             }
 
             # Extract Applications
-            $appsNode = $manifest.SelectSingleNode('//appx:Package/appx:Applications', $nsManager)
-            if ($appsNode) {
-                $apps = $appsNode.SelectNodes('appx:Application', $nsManager)
-                foreach ($app in $apps) {
-                    $result.Applications += [PSCustomObject]@{
-                        Id = $app.Id
-                        Executable = $app.Executable
-                        EntryPoint = $app.EntryPoint
+            try {
+                $appsNode = $null
+                
+                # Multi-tier strategy
+                try {
+                    $appsNode = $manifest.SelectSingleNode('//appx:Package/appx:Applications', $nsManager)
+                }
+                catch {}
+                
+                if (-not $appsNode) {
+                    try {
+                        $appsNode = $manifest.Package.Applications
                     }
+                    catch {}
+                }
+                
+                if (-not $appsNode) {
+                    try {
+                        $appsNode = $manifest.GetElementsByTagName('Applications') | Select-Object -First 1
+                    }
+                    catch {}
+                }
+                
+                if ($appsNode) {
+                    $applications = @()
+                    
+                    $appElements = $appsNode.ChildNodes | Where-Object { $_.LocalName -eq 'Application' }
+                    
+                    foreach ($app in $appElements) {
+                        $applications += [PSCustomObject]@{
+                            Id = Get-SafeAttribute -Node $app -AttributeName 'Id' -DefaultValue 'App'
+                            Executable = Get-SafeAttribute -Node $app -AttributeName 'Executable'
+                            EntryPoint = Get-SafeAttribute -Node $app -AttributeName 'EntryPoint'
+                        }
+                    }
+                    
+                    $result.Applications = $applications
+                    Write-AppxLog -Message "Extracted $($applications.Count) applications" -Level 'Debug'
                 }
             }
+            catch {
+                Write-AppxLog -Message "Failed to extract applications: $_" -Level 'Debug'
+            }
 
-            # Calculate Package Family Name (for reference)
+            # Calculate Package Family Name
             try {
-                $publisherHash = [System.Security.Cryptography.SHA256]::Create().ComputeHash(
-                    [System.Text.Encoding]::Unicode.GetBytes($result.Publisher)
-                )
-                $hashString = [System.BitConverter]::ToString($publisherHash).Replace('-', '').Substring(0, 13)
-                $result.PackageFamilyName = "$($result.Name)_$hashString"
+                if ($result.Name -and $result.Publisher) {
+                    # Simple hash-based calculation (approximation)
+                    $publisherHash = [System.Security.Cryptography.SHA256]::Create().ComputeHash(
+                        [System.Text.Encoding]::Unicode.GetBytes($result.Publisher)
+                    )
+                    $hashString = [System.BitConverter]::ToString($publisherHash).Replace('-', '').Substring(0, 13).ToLower()
+                    $result.PackageFamilyName = "$($result.Name)_$hashString"
+                }
             }
             catch {
-                Write-AppxLog -Message "Failed to calculate PackageFamilyName: $_" -Level 'Warning'
+                Write-AppxLog -Message "Failed to calculate PackageFamilyName: $_" -Level 'Debug'
+            }
+
+            # Calculate Package Full Name
+            try {
+                if ($result.Name -and $result.Version -and $result.ProcessorArchitecture -and $result.PackageFamilyName) {
+                    $familyId = $result.PackageFamilyName.Split('_')[1]
+                    $resourceSuffix = if ($result.ResourceId) { "_$($result.ResourceId)" } else { "" }
+                    $result.PackageFullName = "$($result.Name)_$($result.Version)_$($result.ProcessorArchitecture)$resourceSuffix`_$familyId"
+                }
+            }
+            catch {
+                Write-AppxLog -Message "Failed to calculate PackageFullName: $_" -Level 'Debug'
             }
 
             Write-AppxLog -Message "Manifest parsed successfully: $($result.Name) v$($result.Version)" -Level 'Verbose'
@@ -238,6 +451,7 @@ function Get-AppxManifestData {
         }
         catch {
             Write-AppxLog -Message "Failed to parse manifest: $_" -Level 'Error'
+            Write-AppxLog -Message "Stack trace: $($_.ScriptStackTrace)" -Level 'Debug'
             throw
         }
     }
