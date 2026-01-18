@@ -16,7 +16,7 @@ AppxBackup is a **complete 2026 rewrite** of the 2016 original APPX backup scrip
 
 ✅ **Complete Backup-to-Installation Pipeline** - One-command backup, one-command restore  
 ✅ **Automatic Certificate Management** - Self-signed cert creation and system trust  
-✅ **Native Windows SDK Integration** - MakeAppx and SignTool automation
+✅ **Native Windows SDK Integration** - MakeAppx and SignTool automation  
 ✅ **Modern MSIX Support** - Full support for MSIX + legacy APPX formats
 
 ---
@@ -285,7 +285,6 @@ Install-AppxBackup -PackagePath "package.appx" -Force
 **Cause:** Windows SDK not installed  
 **Solution:**
 1. Install Windows SDK from Microsoft
-2. Module will fall back to .NET compression automatically
 
 #### Error: Access Denied (WindowsApps)
 
@@ -325,12 +324,6 @@ AppxBackup.Module/
 │   ├── ConvertTo-SecureFilePath.ps1    # Path sanitization
 │   └── Write-AppxLog.ps1               # Logging system
 │
-├── Docs/                     # Documentation
-│   ├── QUICK-START.md
-│   ├── SUMMARY.md
-│   ├── 2016-vs-2026-Comparison.md
-│   └── IMPLEMENTATION-STATUS.md
-│
 └── Examples/                 # Usage examples
     └── UsageExamples.md
 ```
@@ -340,7 +333,6 @@ AppxBackup.Module/
 
 ### Getting Help
 
-- **Documentation:** See `/Docs` folder for detailed guides
 - **Examples:** See `/Examples/UsageExamples.md`
 - **Issues:** Check logs in `$env:TEMP\AppxBackup_*.log`
 

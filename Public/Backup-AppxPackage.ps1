@@ -140,8 +140,70 @@ function Backup-AppxPackage {
             # Stage 1: Validation
             $progressStage++
             Write-Progress -Id $progressId -Activity "Backing up APPX Package" `
-                -Status "Stage $progressStage/$totalStages : Validating inputs" `
+                -Status "Stage $progressStage/$totalStages : Validating requirements" `
                 -PercentComplete (($progressStage / $totalStages) * 100)
+            
+            Write-AppxLog -Message "Validating Windows SDK tools..." -Level 'Verbose'
+            
+            # CRITICAL: Validate Windows SDK tools are available
+            # These are MANDATORY - without them, backup will fail inconsistently
+            $makeAppxPath = $null
+            $signToolPath = $null
+            $sdkMissing = @()
+            
+            try {
+                $makeAppxPath = Test-AppxToolAvailability -ToolName 'MakeAppx' -ThrowOnError:$false
+                if (-not $makeAppxPath) {
+                    $sdkMissing += 'MakeAppx.exe'
+                }
+            }
+            catch {
+                $sdkMissing += 'MakeAppx.exe'
+            }
+            
+            try {
+                $signToolPath = Test-AppxToolAvailability -ToolName 'SignTool' -ThrowOnError:$false
+                if (-not $signToolPath) {
+                    $sdkMissing += 'SignTool.exe'
+                }
+            }
+            catch {
+                $sdkMissing += 'SignTool.exe'
+            }
+            
+            if ($sdkMissing.Count -gt 0) {
+                $errorMsg = @"
+CRITICAL ERROR: Windows SDK tools not found
+
+The following required tools are missing:
+$($sdkMissing | ForEach-Object { "  - $_" } | Out-String)
+
+APPX package backup REQUIRES the Windows SDK to be installed.
+Without these tools, the backup process will fail or produce corrupted packages.
+
+SOLUTION:
+1. Download and install Windows SDK from:
+   https://developer.microsoft.com/en-us/windows/downloads/windows-sdk/
+
+2. Ensure the SDK bin directory is in your PATH, or install to default location:
+   C:\Program Files (x86)\Windows Kits\10\bin\<version>\<arch>\
+
+3. Verify installation:
+   makeappx.exe /?
+   signtool.exe /?
+
+Current PATH directories searched:
+$($env:PATH -split ';' | Where-Object { $_ -like '*Windows Kits*' } | ForEach-Object { "  - $_" } | Out-String)
+
+This module does NOT support fallback methods for package creation.
+Windows SDK is MANDATORY for reliable APPX backup operations.
+"@
+                Write-AppxLog -Message $errorMsg -Level 'Error'
+                throw $errorMsg
+            }
+            
+            Write-AppxLog -Message "Found MakeAppx: $makeAppxPath" -Level 'Debug'
+            Write-AppxLog -Message "Found SignTool: $signToolPath" -Level 'Debug'
             
             Write-AppxLog -Message "Validating package path..." -Level 'Verbose'
             
@@ -260,6 +322,40 @@ function Backup-AppxPackage {
                     $certificate = New-AppxBackupCertificate @certParams
                     
                     Write-AppxLog -Message "Certificate created: $certOutputPath" -Level 'Info'
+                    
+                    # Install certificate to Trusted Root Certification Authorities
+                    # This is REQUIRED for the signed package to install without errors
+                    Write-AppxLog -Message "Installing certificate to Trusted Root store..." -Level 'Verbose'
+                    
+                    try {
+                        # Import to LocalMachine\Root requires Administrator privileges
+                        # Try LocalMachine first, fall back to CurrentUser if access denied
+                        try {
+                            Import-Certificate -FilePath $certOutputPath `
+                                -CertStoreLocation "Cert:\LocalMachine\Root" `
+                                -ErrorAction Stop | Out-Null
+                            
+                            Write-AppxLog -Message "Certificate installed to LocalMachine\Root (system-wide trust)" -Level 'Info'
+                            $certInstalled = $true
+                        }
+                        catch {
+                            # Likely not running as Administrator, try CurrentUser
+                            Write-AppxLog -Message "Cannot install to LocalMachine\Root (not Administrator), trying CurrentUser..." -Level 'Debug'
+                            
+                            Import-Certificate -FilePath $certOutputPath `
+                                -CertStoreLocation "Cert:\CurrentUser\Root" `
+                                -ErrorAction Stop | Out-Null
+                            
+                            Write-AppxLog -Message "Certificate installed to CurrentUser\Root (user trust only)" -Level 'Warning'
+                            Write-AppxLog -Message "For system-wide trust, run as Administrator or manually install to LocalMachine\Root" -Level 'Warning'
+                            $certInstalled = $true
+                        }
+                    }
+                    catch {
+                        Write-AppxLog -Message "Failed to automatically install certificate: $_" -Level 'Warning'
+                        Write-AppxLog -Message "You must manually install the certificate before the package can be installed" -Level 'Warning'
+                        $certInstalled = $false
+                    }
                 }
 
                 # Stage 6: Sign Package
@@ -368,6 +464,7 @@ function Backup-AppxPackage {
                 PackageFileSizeMB       = $packageResult.PackageSizeMB
                 CertificateFilePath     = if ($certificate) { $certOutputPath } else { $null }
                 CertificateThumbprint   = if ($certificate) { $certificate.Thumbprint } else { $null }
+                CertificateInstalled    = if ($certificate) { $certInstalled } else { $false }
                 DependencyCount         = if ($dependencyInfo) { $dependencyInfo.TotalDependencies } else { 0 }
                 DependenciesMissing     = if ($dependencyInfo) { $dependencyInfo.MissingCount } else { 0 }
                 DependencyInfo          = $dependencyInfo
@@ -376,12 +473,26 @@ function Backup-AppxPackage {
                 CompressionUsed         = $CompressionLevel
             }
             
-            # Summary
+            # Summary with installation instructions
             Write-AppxLog -Message "=== Backup Complete ===" -Level 'Info'
             Write-AppxLog -Message "Package: $($result.PackageFilePath)" -Level 'Info'
+            
             if ($certificate) {
                 Write-AppxLog -Message "Certificate: $($result.CertificateFilePath)" -Level 'Info'
-                Write-Host "`n[CHAR_9888][CHAR_65039]  IMPORTANT: Install the .cer file to [Local Computer\Trusted Root Certification Authorities] before installing the package.`n" -ForegroundColor Yellow
+                
+                if ($certInstalled) {
+                    Write-Host "`nCertificate installed successfully - package is ready to install`n" -ForegroundColor Green
+                    Write-Host "To install the package, run:" -ForegroundColor Cyan
+                    Write-Host "  Add-AppxPackage -Path '$($result.PackageFilePath)'`n" -ForegroundColor White
+                }
+                else {
+                    Write-Host "`nIMPORTANT: Certificate NOT automatically installed`n" -ForegroundColor Yellow
+                    Write-Host "Before installing the package, install the certificate:" -ForegroundColor Yellow
+                    Write-Host "  1. Run PowerShell as Administrator" -ForegroundColor White
+                    Write-Host "  2. Import-Certificate -FilePath '$($result.CertificateFilePath)' -CertStoreLocation 'Cert:\LocalMachine\Root'`n" -ForegroundColor White
+                    Write-Host "Then install the package:" -ForegroundColor Yellow
+                    Write-Host "  Add-AppxPackage -Path '$($result.PackageFilePath)'`n" -ForegroundColor White
+                }
             }
             
             return $result

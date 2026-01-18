@@ -14,7 +14,7 @@
 
 function Test-AppxToolAvailability {
     [CmdletBinding()]
-    [OutputType([bool])]
+    [OutputType([string])]
     param(
         [Parameter(Mandatory)]
         [ValidateSet('MakeAppx', 'SignTool', 'MakeCert', 'Pvk2Pfx', 'Certutil', 'PowerShellCert')]
@@ -22,6 +22,9 @@ function Test-AppxToolAvailability {
 
         [Parameter()]
         [switch]$ThrowOnMissing,
+        
+        [Parameter()]
+        [switch]$ThrowOnError,
 
         [Parameter()]
         [switch]$UpdateCache
@@ -31,7 +34,7 @@ function Test-AppxToolAvailability {
         # Check cache first (unless UpdateCache is specified)
         if (-not $UpdateCache.IsPresent -and $script:ToolCache.ContainsKey($ToolName)) {
             Write-AppxLog -Message "Tool path retrieved from cache: $ToolName" -Level 'Debug'
-            return $true
+            return $script:ToolCache[$ToolName]
         }
     }
 
@@ -46,13 +49,13 @@ function Test-AppxToolAvailability {
                 if ($cmdlet) {
                     $script:ToolCache[$ToolName] = 'PowerShell-Native'
                     Write-AppxLog -Message "Using native PowerShell certificate cmdlets" -Level 'Verbose'
-                    return $true
+                    return 'PowerShell-Native'
                 }
                 else {
-                    if ($ThrowOnMissing.IsPresent) {
+                    if ($ThrowOnMissing.IsPresent -or $ThrowOnError.IsPresent) {
                         throw "PowerShell certificate cmdlets not available. Requires PowerShell 5.1+"
                     }
-                    return $false
+                    return $null
                 }
             }
 
@@ -159,27 +162,27 @@ function Test-AppxToolAvailability {
             if ($toolPath) {
                 $script:ToolCache[$ToolName] = $toolPath
                 Write-AppxLog -Message "Tool available: $ToolName -> $toolPath" -Level 'Debug'
-                return $true
+                return $toolPath
             }
             else {
                 $message = "Tool not found: $ToolName ($toolExe)"
                 Write-AppxLog -Message $message -Level 'Warning'
                 
-                if ($ThrowOnMissing.IsPresent) {
+                if ($ThrowOnMissing.IsPresent -or $ThrowOnError.IsPresent) {
                     throw $message
                 }
                 
-                return $false
+                return $null
             }
         }
         catch {
             Write-AppxLog -Message "Tool availability check failed: $_" -Level 'Error'
             
-            if ($ThrowOnMissing.IsPresent) {
+            if ($ThrowOnMissing.IsPresent -or $ThrowOnError.IsPresent) {
                 throw
             }
             
-            return $false
+            return $null
         }
     }
 }
