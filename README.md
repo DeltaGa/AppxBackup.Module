@@ -14,11 +14,11 @@ AppxBackup is a **complete 2026 rewrite** of the 2016 original APPX backup scrip
 
 ### Key Capabilities
 
-✅ **Complete Backup-to-Installation Pipeline** - One-command backup, one-command restore  
-✅ **Automatic Certificate Management** - Self-signed cert creation and system trust  
-✅ **Native Windows SDK Integration** - MakeAppx and SignTool automation with tool-specific optimization  
-✅ **Modern MSIX Support** - Full support for MSIX + legacy APPX formats  
-✅ **Externalized Configuration** - Configuration values in JSON for easy customization
+ **Complete Backup-to-Installation Pipeline** - One-command backup, one-command restore  
+ **Automatic Certificate Management** - Self-signed cert creation and system trust  
+ **Native Windows SDK Integration** - MakeAppx and SignTool automation with tool-specific optimization  
+ **Modern MSIX Support** - Full support for MSIX + legacy APPX formats  
+ **Externalized Configuration** - Configuration values in JSON for easy customization
 
 ---
 
