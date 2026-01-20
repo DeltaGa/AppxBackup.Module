@@ -69,7 +69,10 @@ $privateFiles = @(
     'New-AppxPackageInternal.ps1',
     'Test-AppxToolAvailability.ps1',
     'Resolve-AppxDependencies.ps1',
-    'ConvertTo-SecureFilePath.ps1'
+    'ConvertTo-SecureFilePath.ps1',
+    'New-AppxBackupZipArchive.ps1',
+    'New-AppxBackupManifest.ps1',
+    'New-AppxDependencyCertificate.ps1'
 )
 
 foreach ($file in $privateFiles) {

@@ -26,7 +26,7 @@ Enterprise-grade Windows Application Package (APPX/MSIX) backup and restoration 
 
 This module provides comprehensive functionality for:
 - Backing up installed Windows Store/MSIX applications to portable packages
-- Creating properly signed, installable APPX/MSIX bundles
+- Creating ZIP-based dependency packages (.appxpack) with orchestrated installation
 - Managing certificates with modern security practices
 - Handling dependencies, resources, and multi-architecture packages
 - Validating package integrity and compatibility
@@ -42,7 +42,7 @@ Key Features:
 [CHECK] Progress indication for long-running operations
 [CHECK] Secure certificate management with HSM support
 [CHECK] MSIX sparse package support
-[CHECK] Bundle and dependency resolution
+[CHECK] ZIP-based dependency packaging with installation orchestration
 [CHECK] Extensive validation and compatibility checking
 '@
 
@@ -131,7 +131,8 @@ Key Features:
         'Config\ToolConfiguration.json',
         'Config\WindowsReservedNames.json',
         'Config\PackageConfiguration.json',
-        'Config\ModuleDefaults.json'
+        'Config\ModuleDefaults.json',
+        'Config\ZipPackagingConfiguration.json'
     )
 
     # Private data to pass to the module specified in RootModule/ModuleToProcess
@@ -172,7 +173,6 @@ BREAKING CHANGES:
 - Modern MSIX support alongside legacy APPX
 
 NEW FEATURES:
-- Zero external tool dependencies (uses Windows SDK when available)
 - Comprehensive error handling with structured logging
 - Progress indication for all long-running operations
 - Pipeline support for batch operations

@@ -276,30 +276,37 @@ function Invoke-ProcessSafely {
             $process.WaitForExit()
             Start-Sleep -Milliseconds $AsyncWaitMilliseconds # Configurable wait for event handlers to finish
             
-            # Collect results with buffer size protection
+            # Collect results - Convert StringBuilder to string IMMEDIATELY
             $exitCode = $process.ExitCode
-            $standardOutput = $stdoutBuilder.ToString().TrimEnd()
-            $standardError = $stderrBuilder.ToString().TrimEnd()
             $duration = [DateTime]::Now - $startTime
             
-            # Protect against excessive memory usage from massive output
-            # Load limit from configuration
-            $maxOutputSize = Get-AppxDefault 'bufferSizes.maxOutputBytesPerStream' -Fallback 10485760
-            
-            if ($standardOutput.Length -gt $maxOutputSize) {
-                $truncatedLength = $standardOutput.Length
-                $standardOutput = $standardOutput.Substring(0, $maxOutputSize)
-                Write-AppxLog -Message "STDOUT truncated from $truncatedLength bytes to $maxOutputSize bytes" -Level 'Warning'
+            # Convert StringBuilders to strings - CRITICAL: Do this atomically
+            try {
+                $standardOutput = if ($stdoutBuilder.Length -gt 0) { 
+                    $stdoutBuilder.ToString()
+                } else { 
+                    '' 
+                }
+            }
+            catch {
+                Write-AppxLog -Message "Failed to convert stdout builder: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Warning'
+                $standardOutput = ''
             }
             
-            if ($standardError.Length -gt $maxOutputSize) {
-                $truncatedLength = $standardError.Length
-                $standardError = $standardError.Substring(0, $maxOutputSize)
-                Write-AppxLog -Message "STDERR truncated from $truncatedLength bytes to $maxOutputSize bytes" -Level 'Warning'
+            try {
+                $standardError = if ($stderrBuilder.Length -gt 0) { 
+                    $stderrBuilder.ToString()
+                } else { 
+                    '' 
+                }
+            }
+            catch {
+                Write-AppxLog -Message "Failed to convert stderr builder: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Warning'
+                $standardError = ''
             }
             
             Write-AppxLog -Message "Process completed: Exit code $exitCode in $($duration.TotalSeconds.ToString('F2'))s" -Level 'Debug'
-            Write-AppxLog -Message "Captured STDOUT: $($standardOutput.Length) bytes, STDERR: $($standardError.Length) bytes" -Level 'Debug'
+            Write-AppxLog -Message "Captured STDOUT: $($standardOutput.Length) chars, STDERR: $($standardError.Length) chars" -Level 'Debug'
             
             # Tool-specific exit code interpretation from configuration
             $isSuccess = $false
@@ -388,22 +395,36 @@ function Invoke-ProcessSafely {
                 Write-AppxLog -Message "Command: $FilePath $($ArgumentList -join ' ')" -Level 'Error'
                 
                 # CRITICAL: Output full error details to console for debugging
-                Write-Host "`n=== PROCESS FAILED ===" -ForegroundColor Red
+                Write-Host "`n============================================" -ForegroundColor Red
+                Write-Host "=== PROCESS FAILED ===" -ForegroundColor Red
+                Write-Host "============================================" -ForegroundColor Red
                 Write-Host "Exit Code: $exitCode" -ForegroundColor Red
+                Write-Host "Tool: $toolName" -ForegroundColor Yellow
                 Write-Host "Command: $FilePath" -ForegroundColor Yellow
                 Write-Host "Arguments: $($ArgumentList -join ' ')" -ForegroundColor Yellow
+                Write-Host "Duration: $($duration.TotalSeconds.ToString('F2'))s" -ForegroundColor Yellow
                 
-                if ($standardError) {
-                    Write-AppxLog -Message "STDERR Output:`n$standardError" -Level 'Error'
-                    Write-Host "`n--- STDERR ($($standardError.Length) bytes) ---" -ForegroundColor Red
+                if ($standardError -and $standardError.Trim().Length -gt 0) {
+                    Write-AppxLog -Message "STDERR Output (${$standardError.Length} chars):`n$standardError" -Level 'Error'
+                    Write-Host "`n--- STDERR ($($standardError.Length) chars) ---" -ForegroundColor Red
                     Write-Host $standardError -ForegroundColor Gray
                 }
-                if ($standardOutput) {
-                    Write-AppxLog -Message "STDOUT Output:`n$standardOutput" -Level 'Error'
-                    Write-Host "`n--- STDOUT ($($standardOutput.Length) bytes) ---" -ForegroundColor Yellow
+                else {
+                    Write-Host "`n--- STDERR: (empty) ---" -ForegroundColor Red
+                }
+                
+                if ($standardOutput -and $standardOutput.Trim().Length -gt 0) {
+                    Write-AppxLog -Message "STDOUT Output ($($standardOutput.Length) chars):`n$standardOutput" -Level 'Error'
+                    Write-Host "`n--- STDOUT ($($standardOutput.Length) chars) ---" -ForegroundColor Yellow
                     Write-Host $standardOutput -ForegroundColor Gray
                 }
-                Write-Host "=== END FAILURE DETAILS ===`n" -ForegroundColor Red
+                else {
+                    Write-Host "`n--- STDOUT: (empty) ---" -ForegroundColor Yellow
+                }
+                
+                Write-Host "============================================" -ForegroundColor Red
+                Write-Host "=== END FAILURE DETAILS ===" -ForegroundColor Red
+                Write-Host "============================================`n" -ForegroundColor Red
                 
                 Write-AppxLog -Message "=== END FAILURE DETAILS ===" -Level 'Error'
                 

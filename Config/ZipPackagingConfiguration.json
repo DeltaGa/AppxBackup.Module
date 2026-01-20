@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ZIP Packaging Configuration",
+  "description": "Configuration for ZIP-based dependency packaging (.appxpack archives)",
+  "version": "1.0.0",
+  "archiveStructure": {
+    "packagesDirectory": "Packages",
+    "certificatesDirectory": "Certificates",
+    "manifestFileName": "AppxBackupManifest.json",
+    "readmeFileName": "README.txt",
+    "description": "Standard directory and file structure for .appxpack archives"
+  },
+  "manifestDefaults": {
+    "version": "1.0",
+    "formatVersion": "1.0",
+    "createdByString": "AppxBackup v2.0",
+    "defaultCompression": "Optimal",
+    "requiresElevation": true,
+    "description": "Default values for AppxBackupManifest.json generation"
+  },
+  "systemRequirements": {
+    "minimumOSVersion": "10.0.17763",
+    "minimumOSBuildNumber": 17763,
+    "minimumOSName": "Windows 10 1809",
+    "minimumPowerShellVersion": "5.1",
+    "recommendedPowerShellVersion": "7.5",
+    "description": "Minimum system requirements for .appxpack installation"
+  },
+  "archiveExtensions": {
+    "zipArchive": ".appxpack",
+    "alternateExtensions": [".zip"],
+    "description": "File extensions for ZIP-based package archives"
+  },
+  "compressionSettings": {
+    "defaultLevel": "Optimal",
+    "availableLevels": ["NoCompression", "Fastest", "Optimal"],
+    "description": "ZIP compression level options (maps to System.IO.Compression.CompressionLevel enum)"
+  },
+  "certificateSettings": {
+    "defaultStoreLocation": "Cert:\\CurrentUser\\My",
+    "installStoreLocationMachine": "Cert:\\LocalMachine\\Root",
+    "installStoreLocationUser": "Cert:\\CurrentUser\\Root",
+    "description": "Certificate store locations for creation and installation"
+  },
+  "readmeTemplate": {
+    "includeInstallationInstructions": true,
+    "includeManualSteps": true,
+    "includeGUISteps": true,
+    "includeTroubleshooting": true,
+    "projectUrl": "https://github.com/DeltaGa/AppxBackup.Module",
+    "description": "Configuration for README.txt generation in archives"
+  },
+  "temporaryDirectories": {
+    "zipTempPrefix": "AppxZipTemp_",
+    "extractTempPrefix": "AppxExtract_",
+    "guidFormat": "D",
+    "description": "Temporary directory naming conventions for ZIP operations"
+  },
+  "installationOrder": {
+    "dependenciesFirst": true,
+    "sortByArchitecture": false,
+    "mainPackageLast": true,
+    "description": "Default installation ordering strategy"
+  },
+  "validationRules": {
+    "requireManifestInArchive": true,
+    "requireReadmeInArchive": false,
+    "validatePackageSignatures": true,
+    "validateCertificatePresence": true,
+    "description": "Validation rules for .appxpack archives"
+  },
+  "errorRecovery": {
+    "cleanupOnFailure": true,
+    "preserveTempOnError": false,
+    "maxRetryAttempts": 3,
+    "description": "Error handling and cleanup configuration"
+  }
+}

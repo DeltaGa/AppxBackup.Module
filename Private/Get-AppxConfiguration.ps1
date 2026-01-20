@@ -15,7 +15,8 @@
 
 .PARAMETER ConfigName
     Name of the configuration file to load (without .json extension).
-    Valid values: 'MimeTypes', 'ToolConfiguration', 'WindowsReservedNames'
+    Valid values: 'MimeTypes', 'ToolConfiguration', 'WindowsReservedNames', 
+                  'PackageConfiguration', 'ModuleDefaults', 'ZipPackagingConfiguration'
 
 .PARAMETER Reload
     If specified, forces reload from disk even if cached.
@@ -36,7 +37,7 @@ function Get-AppxConfiguration {
     [OutputType([PSCustomObject])]
     param(
         [Parameter(Mandatory, Position = 0)]
-        [ValidateSet('MimeTypes', 'ToolConfiguration', 'WindowsReservedNames', 'PackageConfiguration', 'ModuleDefaults')]
+        [ValidateSet('MimeTypes', 'ToolConfiguration', 'WindowsReservedNames', 'PackageConfiguration', 'ModuleDefaults', 'ZipPackagingConfiguration')]
         [string]$ConfigName,
 
         [Parameter()]
