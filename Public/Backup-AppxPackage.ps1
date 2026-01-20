@@ -23,12 +23,19 @@
     If not specified, uses current directory.
 
 .PARAMETER IncludeDependencies
-    If specified, analyzes and reports package dependencies.
-    Does not bundle dependencies (see -CreateBundle for that).
+    Creates a complete bundle (.appxbundle/.msixbundle) containing the main package
+    plus all installed dependencies. This provides a single file with everything
+    needed for installation. Also exports a JSON dependency report.
+    Note: Bundle size will be significantly larger but ensures complete portability.
+
+.PARAMETER DependencyReportOnly
+    Exports only a JSON report of dependencies without bundling them.
+    Use this for analysis or lightweight backup when you don't need the dependencies
+    packaged. The JSON report includes installation paths and version details.
 
 .PARAMETER CreateBundle
-    If specified, creates an MSIX bundle including dependencies.
-    Requires dependencies to be locally accessible.
+    DEPRECATED: Use -IncludeDependencies instead.
+    This parameter is kept for backward compatibility.
 
 .PARAMETER CertificateSubject
     Subject name for the self-signed certificate.
@@ -98,6 +105,9 @@ function Backup-AppxPackage {
 
         [Parameter()]
         [switch]$IncludeDependencies,
+        
+        [Parameter()]
+        [switch]$DependencyReportOnly,
 
         [Parameter(ParameterSetName = 'Bundle')]
         [switch]$CreateBundle,
@@ -253,7 +263,10 @@ Windows SDK is MANDATORY for reliable APPX backup operations.
 
             # Stage 3: Resolve Dependencies (if requested)
             $dependencyInfo = $null
-            if ($IncludeDependencies.IsPresent) {
+            $dependencyPackages = @()
+            $bundlePath = $null
+            
+            if ($IncludeDependencies.IsPresent -or $DependencyReportOnly.IsPresent) {
                 $progressStage++
                 Write-Progress -Id $progressId -Activity "Backing up APPX Package" `
                     -Status "Stage $progressStage/$totalStages : Resolving dependencies" `
@@ -265,7 +278,85 @@ Windows SDK is MANDATORY for reliable APPX backup operations.
                 Write-AppxLog -Message "Dependencies found: $($dependencyInfo.TotalDependencies) (Missing: $($dependencyInfo.MissingCount))" -Level 'Info'
                 
                 if ($dependencyInfo.MissingCount -gt 0) {
-                    Write-AppxLog -Message "Some dependencies are not installed. Package may not restore successfully." -Level 'Warning'
+                    Write-AppxLog -Message "Some dependencies are not installed. Bundle may be incomplete." -Level 'Warning'
+                }
+                
+                # Export dependency report
+                $depReportPath = [System.IO.Path]::Combine(
+                    (Split-Path $packageOutputPath -Parent),
+                    "$baseFileName`_Dependencies.json"
+                )
+                
+                try {
+                    $dependencyInfo | ConvertTo-Json -Depth 10 | Out-File -FilePath $depReportPath -Encoding UTF8
+                    Write-AppxLog -Message "Dependency report saved: $depReportPath" -Level 'Info'
+                }
+                catch {
+                    Write-AppxLog -Message "Failed to save dependency report: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Warning'
+                }
+                
+                # If IncludeDependencies, create full bundle with all dependencies
+                if ($IncludeDependencies.IsPresent) {
+                    Write-AppxLog -Message "Creating complete dependency bundle..." -Level 'Info'
+                    Write-Host "`n[INFO] Bundling dependencies - this may take several minutes..." -ForegroundColor Cyan
+                    
+                    # Create temporary directory for dependency packages
+                    $bundleWorkDir = [System.IO.Path]::Combine($env:TEMP, "AppxBundle_$(New-Guid)")
+                    [void](New-Item -Path $bundleWorkDir -ItemType Directory -Force)
+                    
+                    try {
+                        # Package each installed dependency
+                        $depPackageCount = 0
+                        foreach ($dep in @($dependencyInfo.Dependencies | Where-Object { $_.IsInstalled })) {
+                            $depPackageCount++
+                            Write-Progress -Id ($progressId + 1) -Activity "Packaging Dependencies" `
+                                -Status "Package $depPackageCount of $($dependencyInfo.InstalledCount): $($dep.Name)" `
+                                -PercentComplete (($depPackageCount / $dependencyInfo.InstalledCount) * 100)
+                            
+                            Write-AppxLog -Message "Packaging dependency: $($dep.Name) v$($dep.InstalledVersion)" -Level 'Verbose'
+                            
+                            if ($null -eq $dep.ResolvedPath -or -not (Test-Path -LiteralPath $dep.ResolvedPath)) {
+                                Write-AppxLog -Message "Dependency path not accessible: $($dep.Name)" -Level 'Warning'
+                                continue
+                            }
+                            
+                            # Generate safe filename for dependency package
+                            $depSafeName = "$($dep.Name)_$($dep.InstalledVersion)_$($dep.Architecture)".Replace(':', '_').Replace('\', '_').Replace('/', '_')
+                            $depPackagePath = [System.IO.Path]::Combine($bundleWorkDir, "$depSafeName.appx")
+                            
+                            try {
+                                # Create dependency package
+                                $depResult = New-AppxPackageInternal `
+                                    -SourcePath $dep.ResolvedPath `
+                                    -OutputPath $depPackagePath `
+                                    -CompressionLevel $CompressionLevel
+                                
+                                if ($depResult.Success) {
+                                    $dependencyPackages += [PSCustomObject]@{
+                                        Name = $dep.Name
+                                        Version = $dep.InstalledVersion
+                                        Architecture = $dep.Architecture
+                                        PackagePath = $depPackagePath
+                                        PackageSize = $depResult.PackageSize
+                                    }
+                                    Write-AppxLog -Message "Dependency packaged: $depPackagePath" -Level 'Debug'
+                                }
+                            }
+                            catch {
+                                Write-AppxLog -Message "Failed to package dependency $($dep.Name): $_ | Stack: $($_.ScriptStackTrace)" -Level 'Warning'
+                            }
+                        }
+                        
+                        Write-Progress -Id ($progressId + 1) -Activity "Packaging Dependencies" -Completed
+                        
+                        Write-AppxLog -Message "Successfully packaged $($dependencyPackages.Count) dependencies" -Level 'Info'
+                        Write-Host "[SUCCESS] $($dependencyPackages.Count) dependencies packaged, will bundle after main package creation" -ForegroundColor Green
+                    }
+                    catch {
+                        Write-AppxLog -Message "Dependency packaging error: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Error'
+                        # Continue with main package even if dependencies fail
+                        $dependencyPackages = @()
+                    }
                 }
             }
 
@@ -288,6 +379,97 @@ Windows SDK is MANDATORY for reliable APPX backup operations.
             else {
                 Write-AppxLog -Message "Package creation skipped (WhatIf)" -Level 'Info'
                 return
+            }
+            
+            # Stage 4.5: Create Bundle (if dependencies were packaged)
+            if ($IncludeDependencies.IsPresent -and $dependencyPackages.Count -gt 0 -and $bundleWorkDir) {
+                Write-AppxLog -Message "Creating bundle with main package + dependencies..." -Level 'Info'
+                Write-Host "`n[INFO] Creating final bundle..." -ForegroundColor Cyan
+                
+                try {
+                    # Copy main package to bundle work directory
+                    $mainPackageInBundle = [System.IO.Path]::Combine($bundleWorkDir, [System.IO.Path]::GetFileName($packageOutputPath))
+                    Copy-Item -LiteralPath $packageOutputPath -Destination $mainPackageInBundle -Force
+                    Write-AppxLog -Message "Copied main package to bundle directory" -Level 'Debug'
+                    
+                    # Create bundle output path
+                    $bundlePath = $packageOutputPath -replace '\.appx$', '.appxbundle' -replace '\.msix$', '.msixbundle'
+                    
+                    Write-AppxLog -Message "Creating bundle with $($dependencyPackages.Count + 1) packages" -Level 'Verbose'
+                    
+                    # Create bundle mapping file with RELATIVE paths from bundle work directory
+                    $mappingFilePath = [System.IO.Path]::Combine($bundleWorkDir, 'BundleMapping.txt')
+                    $mappingContent = @('[Files]')
+                    
+                    # Add main package to mapping (relative path)
+                    $mainPackageName = [System.IO.Path]::GetFileName($mainPackageInBundle)
+                    $mappingContent += "`"$mainPackageName`" `"$mainPackageName`""
+                    Write-AppxLog -Message "Added main package to bundle: $mainPackageName" -Level 'Debug'
+                    
+                    # Add all dependency packages to mapping (relative paths)
+                    foreach ($dep in $dependencyPackages) {
+                        $depFileName = [System.IO.Path]::GetFileName($dep.PackagePath)
+                        $mappingContent += "`"$depFileName`" `"$depFileName`""
+                        Write-AppxLog -Message "Added dependency to bundle: $depFileName" -Level 'Debug'
+                    }
+                    
+                    # Write mapping file
+                    $mappingContent | Out-File -FilePath $mappingFilePath -Encoding ASCII
+                    Write-AppxLog -Message "Bundle mapping file created with $($dependencyPackages.Count + 1) entries" -Level 'Debug'
+                    
+                    # Get MakeAppx path
+                    $makeAppxPath = Get-AppxToolPath -ToolName 'MakeAppx'
+                    
+                    # Build makeappx bundle command with mapping file
+                    $bundleArgs = @(
+                        'bundle'
+                        '/f', "`"$mappingFilePath`""
+                        '/p', "`"$bundlePath`""
+                        '/o'  # Overwrite existing
+                        '/v'  # Verbose
+                    )
+                    
+                    Write-AppxLog -Message "Invoking process: $makeAppxPath" -Level 'Verbose'
+                    Write-AppxLog -Message "Arguments: $($bundleArgs -join ' ')" -Level 'Debug'
+                    Write-AppxLog -Message "Working Directory: $bundleWorkDir" -Level 'Debug'
+                    
+                    $bundleResult = Invoke-ProcessSafely `
+                        -FilePath $makeAppxPath `
+                        -ArgumentList $bundleArgs `
+                        -WorkingDirectory $bundleWorkDir
+                    
+                    if ($bundleResult.Success) {
+                        Write-AppxLog -Message "Bundle created successfully: $bundlePath" -Level 'Info'
+                        Write-Host "[SUCCESS] Bundle created with $($dependencyPackages.Count) dependencies" -ForegroundColor Green
+                        
+                        # Update packageOutputPath to point to bundle
+                        $originalPackagePath = $packageOutputPath
+                        $packageOutputPath = $bundlePath
+                        
+                        # Remove standalone main package (now in bundle)
+                        if (Test-Path -LiteralPath $originalPackagePath) {
+                            Remove-Item -LiteralPath $originalPackagePath -Force -ErrorAction SilentlyContinue
+                            Write-AppxLog -Message "Removed standalone package (now in bundle): $originalPackagePath" -Level 'Debug'
+                        }
+                    }
+                    else {
+                        Write-AppxLog -Message "Bundle creation failed. Keeping standalone package." -Level 'Warning'
+                        Write-Host "[WARNING] Bundle creation failed. Standalone package retained." -ForegroundColor Yellow
+                        $bundlePath = $null  # Clear bundle path so we don't report it
+                    }
+                }
+                catch {
+                    Write-AppxLog -Message "Bundle creation error: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Error'
+                    Write-Host "[WARNING] Bundle creation failed. Standalone package retained." -ForegroundColor Yellow
+                    $bundlePath = $null
+                }
+                finally {
+                    # Cleanup bundle work directory
+                    if ($bundleWorkDir -and (Test-Path -LiteralPath $bundleWorkDir)) {
+                        Remove-Item -Path $bundleWorkDir -Recurse -Force -ErrorAction SilentlyContinue
+                        Write-AppxLog -Message "Cleaned up bundle work directory" -Level 'Debug'
+                    }
+                }
             }
 
             # Stage 5: Certificate Creation & Signing
@@ -461,24 +643,27 @@ Windows SDK is MANDATORY for reliable APPX backup operations.
             
             # Build result object
             $result = [PSCustomObject]@{
-                PSTypeName              = 'AppxBackup.BackupResult'
-                Success                 = $true
-                PackageName             = $manifestData.Name
-                PackageVersion          = $manifestData.Version
-                PackagePublisher        = $manifestData.Publisher
-                PackageArchitecture     = $manifestData.ProcessorArchitecture
-                PackageFilePath         = $packageOutputPath
-                PackageFileSize         = $packageResult.PackageSize
-                PackageFileSizeMB       = $packageResult.PackageSizeMB
-                CertificateFilePath     = if ($certificate) { $certOutputPath } else { $null }
-                CertificateThumbprint   = if ($certificate) { $certificate.Thumbprint } else { $null }
-                CertificateInstalled    = if ($certificate) { $certInstalled } else { $false }
-                DependencyCount         = if ($dependencyInfo) { $dependencyInfo.TotalDependencies } else { 0 }
-                DependenciesMissing     = if ($dependencyInfo) { $dependencyInfo.MissingCount } else { 0 }
-                DependencyInfo          = $dependencyInfo
-                SourcePath              = $packagePath
-                BackupDate              = [DateTime]::Now
-                CompressionUsed         = $CompressionLevel
+                PSTypeName                  = 'AppxBackup.BackupResult'
+                Success                     = $true
+                PackageName                 = $manifestData.Name
+                PackageVersion              = $manifestData.Version
+                PackagePublisher            = $manifestData.Publisher
+                PackageArchitecture         = $manifestData.ProcessorArchitecture
+                PackageFilePath             = $packageOutputPath
+                PackageFileSize             = if ($bundlePath) { (Get-Item -LiteralPath $bundlePath).Length } else { $packageResult.PackageSize }
+                PackageFileSizeMB           = if ($bundlePath) { [Math]::Round((Get-Item -LiteralPath $bundlePath).Length / 1MB, 2) } else { $packageResult.PackageSizeMB }
+                IsBundle                    = if ($bundlePath) { $true } else { $false }
+                BundledDependencyCount      = $dependencyPackages.Count
+                CertificateFilePath         = if ($certificate) { $certOutputPath } else { $null }
+                CertificateThumbprint       = if ($certificate) { $certificate.Thumbprint } else { $null }
+                CertificateInstalled        = if ($certificate) { $certInstalled } else { $false }
+                DependencyCount             = if ($dependencyInfo) { $dependencyInfo.TotalDependencies } else { 0 }
+                DependenciesMissing         = if ($dependencyInfo) { $dependencyInfo.MissingCount } else { 0 }
+                DependencyInfo              = $dependencyInfo
+                DependencyReportPath        = if (($IncludeDependencies.IsPresent -or $DependencyReportOnly.IsPresent) -and $dependencyInfo) { $depReportPath } else { $null }
+                SourcePath                  = $packagePath
+                BackupDate                  = [DateTime]::Now
+                CompressionUsed             = $CompressionLevel
             }
             
             # Summary with installation instructions
@@ -500,6 +685,28 @@ Windows SDK is MANDATORY for reliable APPX backup operations.
                     Write-Host "  2. Import-Certificate -FilePath '$($result.CertificateFilePath)' -CertStoreLocation 'Cert:\LocalMachine\Root'`n" -ForegroundColor White
                     Write-Host "Then install the package:" -ForegroundColor Yellow
                     Write-Host "  Add-AppxPackage -Path '$($result.PackageFilePath)'`n" -ForegroundColor White
+                }
+            }
+            
+            # Notify about bundle creation
+            if ($result.IsBundle) {
+                Write-Host "`n=== BUNDLE CREATED ===" -ForegroundColor Green
+                Write-Host "[SUCCESS] Complete bundle with all dependencies" -ForegroundColor Green
+                Write-Host "  Bundle File: $($result.PackageFilePath)" -ForegroundColor White
+                Write-Host "  Bundle Size: $($result.PackageFileSizeMB) MB" -ForegroundColor White
+                Write-Host "  Main Package + $($result.BundledDependencyCount) Dependencies" -ForegroundColor Cyan
+                Write-Host "`nThis bundle contains everything needed for installation." -ForegroundColor Gray
+            }
+            
+            # Notify about dependency report if created
+            if ($result.DependencyReportPath) {
+                if (-not $result.IsBundle) {
+                    Write-Host "`n[INFO] Dependency Report Created:" -ForegroundColor Cyan
+                    Write-Host "  Location: $($result.DependencyReportPath)" -ForegroundColor White
+                    Write-Host "  Dependencies: $($result.DependencyCount) total, $($result.DependenciesMissing) missing`n" -ForegroundColor Gray
+                }
+                else {
+                    Write-Host "  Dependency Report: $($result.DependencyReportPath)`n" -ForegroundColor Gray
                 }
             }
             

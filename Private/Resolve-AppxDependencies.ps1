@@ -56,8 +56,11 @@ function Resolve-AppxDependencies {
             # Extract dependencies from manifest
             $dependencies = @()
             
-            if ($manifestData.Dependencies -and $manifestData.Dependencies.Count -gt 0) {
-                foreach ($dep in @($manifestData.Dependencies)) {
+            # Ensure Dependencies is treated as array and has Count property
+            $manifestDeps = @($manifestData.Dependencies)
+            
+            if ($null -ne $manifestData.Dependencies -and $manifestDeps.Count -gt 0) {
+                foreach ($dep in $manifestDeps) {
                     $depInfo = [PSCustomObject]@{
                         PSTypeName          = 'AppxBackup.DependencyInfo'
                         Name                = $dep.Name
@@ -169,15 +172,18 @@ function Resolve-AppxDependencies {
             }
 
             # Build result object
+            # Ensure dependencies is array for consistent Count property access
+            $dependenciesArray = @($dependencies)
+            
             $result = [PSCustomObject]@{
                 PSTypeName          = 'AppxBackup.DependencyResult'
                 PackageName         = $manifestData.Name
                 PackageVersion      = $manifestData.Version
-                TotalDependencies   = $dependencies.Count
-                InstalledCount      = ($dependencies | Where-Object { $_.IsInstalled }).Count
-                MissingCount        = ($dependencies | Where-Object { -not $_.IsInstalled }).Count
-                FrameworkCount      = ($dependencies | Where-Object { $_.DependencyType -eq 'Framework' }).Count
-                Dependencies        = $dependencies
+                TotalDependencies   = $dependenciesArray.Count
+                InstalledCount      = (@($dependenciesArray | Where-Object { $_.IsInstalled })).Count
+                MissingCount        = (@($dependenciesArray | Where-Object { -not $_.IsInstalled })).Count
+                FrameworkCount      = (@($dependenciesArray | Where-Object { $_.DependencyType -eq 'Framework' })).Count
+                Dependencies        = $dependenciesArray
                 ManifestPath        = $manifestPath
             }
 

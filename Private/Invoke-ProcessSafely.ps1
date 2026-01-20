@@ -386,12 +386,25 @@ function Invoke-ProcessSafely {
                 Write-AppxLog -Message "=== PROCESS FAILURE DETAILS ===" -Level 'Error'
                 Write-AppxLog -Message "Exit Code: $exitCode" -Level 'Error'
                 Write-AppxLog -Message "Command: $FilePath $($ArgumentList -join ' ')" -Level 'Error'
+                
+                # CRITICAL: Output full error details to console for debugging
+                Write-Host "`n=== PROCESS FAILED ===" -ForegroundColor Red
+                Write-Host "Exit Code: $exitCode" -ForegroundColor Red
+                Write-Host "Command: $FilePath" -ForegroundColor Yellow
+                Write-Host "Arguments: $($ArgumentList -join ' ')" -ForegroundColor Yellow
+                
                 if ($standardError) {
                     Write-AppxLog -Message "STDERR Output:`n$standardError" -Level 'Error'
+                    Write-Host "`n--- STDERR ($($standardError.Length) bytes) ---" -ForegroundColor Red
+                    Write-Host $standardError -ForegroundColor Gray
                 }
                 if ($standardOutput) {
                     Write-AppxLog -Message "STDOUT Output:`n$standardOutput" -Level 'Error'
+                    Write-Host "`n--- STDOUT ($($standardOutput.Length) bytes) ---" -ForegroundColor Yellow
+                    Write-Host $standardOutput -ForegroundColor Gray
                 }
+                Write-Host "=== END FAILURE DETAILS ===`n" -ForegroundColor Red
+                
                 Write-AppxLog -Message "=== END FAILURE DETAILS ===" -Level 'Error'
                 
                 # Build exception message - ALWAYS include stderr if present (highest priority)

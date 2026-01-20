@@ -101,8 +101,44 @@ function Export-AppxDependencies {
 
     process {
         try {
+            # Check if OutputPath is a directory and auto-generate filename
+            $isDirectory = $false
+            if (Test-Path -LiteralPath $OutputPath -PathType Container) {
+                $isDirectory = $true
+            }
+            elseif ($OutputPath.EndsWith('\') -or $OutputPath.EndsWith('/')) {
+                $isDirectory = $true
+            }
+            
+            # Generate output file path
+            if ($isDirectory) {
+                # Extract package name from path for filename
+                $pkgName = if (Test-Path -LiteralPath $PackagePath -PathType Container) {
+                    Split-Path -Path $PackagePath -Leaf
+                } else {
+                    [System.IO.Path]::GetFileNameWithoutExtension($PackagePath)
+                }
+                
+                # Set default format if not specified (can't auto-detect from directory)
+                if ([string]::IsNullOrEmpty($Format)) {
+                    $Format = 'JSON'
+                    Write-AppxLog -Message "No format specified, defaulting to JSON" -Level 'Debug'
+                }
+                
+                # Use Format to determine extension
+                $extension = $Format.ToLower()
+                
+                $fileName = "${pkgName}_Dependencies.$extension"
+                $outputPath = [System.IO.Path]::Combine($OutputPath, $fileName)
+                
+                Write-AppxLog -Message "Auto-generated filename: $fileName" -Level 'Debug'
+            }
+            else {
+                $outputPath = $OutputPath
+            }
+            
             # Validate output path
-            $outputPath = ConvertTo-SecureFilePath -Path $OutputPath -ResolveRelative
+            $outputPath = ConvertTo-SecureFilePath -Path $outputPath -ResolveRelative
             $outputDir = Split-Path -Path $outputPath -Parent
             
             if ($outputDir -and -not (Test-Path -LiteralPath $outputDir)) {
@@ -349,6 +385,27 @@ $(
 "@
                     
                     $html | Out-File -FilePath $outputPath -Encoding UTF8
+                }
+                
+                default {
+                    # Fallback to JSON if Format is unrecognized or null
+                    Write-AppxLog -Message "Unrecognized format '$Format', defaulting to JSON" -Level 'Warning'
+                    
+                    $jsonData = [PSCustomObject]@{
+                        ExportDate = [DateTime]::Now.ToString('o')
+                        PackageName = $depResult.PackageName
+                        PackageVersion = $depResult.PackageVersion
+                        SourcePath = $PackagePath
+                        Summary = [PSCustomObject]@{
+                            TotalDependencies = $depResult.TotalDependencies
+                            InstalledCount = $depResult.InstalledCount
+                            MissingCount = $depResult.MissingCount
+                            FrameworkCount = $depResult.FrameworkCount
+                        }
+                        Dependencies = $depResult.Dependencies
+                    }
+                    
+                    $jsonData | ConvertTo-Json -Depth 10 | Out-File -FilePath $outputPath -Encoding UTF8
                 }
             }
 
