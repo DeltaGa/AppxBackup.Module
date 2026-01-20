@@ -214,7 +214,7 @@ Backup-AppxPackage -PackagePath $app.InstallLocation `
 
 #### 4. Backup with Dependencies (ZIP Archive)
 ```powershell
-# Creates .appxpack file with main package + all dependencies
+# Creates .appxpack file with main package and all dependencies
 Backup-AppxPackage -PackagePath $app.InstallLocation `
     -OutputPath "C:\Backups" `
     -IncludeDependencies
@@ -222,12 +222,10 @@ Backup-AppxPackage -PackagePath $app.InstallLocation `
 
 #### 5. Dependency Analysis Only (No Backup)
 ```powershell
-# Analyze dependencies without creating backup
+# Creates PackageName_Dependencies.json without creating backup
 Backup-AppxPackage -PackagePath $app.InstallLocation `
     -OutputPath "C:\Backups" `
     -DependencyReportOnly
-
-# Dependencies report saved to: PackageName_Dependencies.json
 ```
 
 ### Batch Operations
@@ -251,7 +249,6 @@ Install-AppxBackup -PackagePath "C:\Backups\MyApp.appx"
 
 #### 8. Install ZIP Archive with Dependencies
 ```powershell
-# Automatically extracts, installs certificates, and installs all packages
 Install-AppxBackup -PackagePath "C:\Backups\MyApp.appxpack"
 ```
 
