@@ -45,7 +45,7 @@
 
 .NOTES
     Author: DeltaGa
-    Version: 2.0.0
+    Version: 2.0.1
     
     This is a critical component of the ZIP-based dependency packaging system.
     It ensures proper structure and metadata for Install-AppxBackup orchestration.

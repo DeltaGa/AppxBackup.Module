@@ -22,7 +22,7 @@
     Designed to never fail catastrophically—always has fallback mechanisms.
     
     Author: DeltaGa
-    Version: 2.0.0
+    Version: 2.0.1
 #>
 
 function Write-AppxLog {

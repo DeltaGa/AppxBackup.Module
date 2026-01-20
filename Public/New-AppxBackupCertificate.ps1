@@ -76,7 +76,7 @@
     after export. Use Remove-Item to delete from store when no longer needed.
     
     Author: DeltaGa
-    Version: 2.0.0
+    Version: 2.0.1
 #>
 
 function New-AppxBackupCertificate {

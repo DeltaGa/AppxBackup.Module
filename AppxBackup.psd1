@@ -3,7 +3,7 @@
     RootModule = 'AppxBackup.psm1'
 
     # Version number of this module.
-    ModuleVersion = '2.0.0'
+    ModuleVersion = '2.0.1'
 
     # Supported PSEditions
     CompatiblePSEditions = @('Desktop', 'Core')
@@ -36,7 +36,6 @@ Replaces 2016-era tooling with modern PowerShell 7+ native capabilities
 while maintaining backward compatibility with Windows 10/11 APPX infrastructure.
 
 Key Features:
-[CHECK] Zero external dependencies (uses native Windows SDK when available)
 [CHECK] Comprehensive error handling and logging
 [CHECK] Pipeline support for batch operations
 [CHECK] Progress indication for long-running operations
@@ -161,47 +160,30 @@ Key Features:
 
             # ReleaseNotes of this module
             ReleaseNotes = @'
-Version 2.0.0 (2026 Complete Rewrite)
-=====================================
+            Version 2.0.1 (January 20, 2026)
+            ================================
 
-BREAKING CHANGES:
-- Complete rewrite from 2016 deprecated implementation
-- Requires PowerShell 5.1+ (7.4+ recommended)
-- Native certificate management (no MakeCert.exe dependency)
-- Modern MSIX support alongside legacy APPX
+            RELEASE SUMMARY:
+            Complete rewrite of AppxBackup module from 2016 deprecated implementation to modern PowerShell 7+ native capabilities with comprehensive feature set.
 
-NEW FEATURES:
-- Zero external tool dependencies (uses Windows SDK when available)
-- Comprehensive error handling with structured logging
-- Progress indication for all long-running operations
-- Pipeline support for batch operations
-- Secure certificate management
-- Bundle and dependency resolution
-- Extensive validation and compatibility checking
-- Rollback capability on failure
-- Multi-threading support for large package sets
-- HSM/TPM certificate storage integration
+            MAJOR FEATURES:
+            - ZIP-based dependency packaging (.appxpack) with structured metadata and orchestrated installation
+            - Manifest parsing with multi-tier fallback strategies for namespace resolution
+            - External JSON configuration system (MimeTypes, ToolConfiguration, ModuleDefaults, etc.)
+            - Automatic certificate installation to Trusted Root store with privilege escalation fallback
+            - SDK tool validation with intelligent fallback and comprehensive error diagnostics
+            - Signature validation for backup archives using SignTool integration
+            - Dynamic tool path resolution returning actual paths instead of boolean values
+            - Process safety framework with tool-specific timeouts and output buffer management
 
-SECURITY IMPROVEMENTS:
-- No cleartext private keys on disk
-- Secure credential handling
-- Certificate permission validation
-- Sandboxed package extraction
-- Integrity verification at all stages
-
-PERFORMANCE:
-- Async I/O for large packages
-- Parallel dependency resolution
-- Optimized manifest parsing
-- Smart caching of tool paths
-
-COMPATIBILITY:
-- Windows 10 1809+ (all editions)
-- Windows 11 (all versions)
-- Windows Server 2019+
-- MSIX Packaging Tool compatible
-- Legacy APPX fully supported
-'@
+            COMPATIBILITY:
+            - Windows 10 1809+ (all editions)
+            - Windows 11 (all versions)
+            - Windows Server 2019+
+            - PowerShell 5.1+ (7.4+ recommended)
+            - MSIX Packaging Tool compatible
+            - Legacy APPX fully supported
+            '@
 
             # Prerelease string of this module
             Prerelease = ''

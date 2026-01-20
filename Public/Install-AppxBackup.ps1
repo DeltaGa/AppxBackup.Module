@@ -70,7 +70,7 @@
 
 .NOTES
     Author: DeltaGa
-    Version: 1.0.0
+    Version: 2.0.1
     Requires: PowerShell 5.1+, Windows 10 1809+
 #>
 
@@ -158,7 +158,7 @@ begin {
     }
     
     Write-Host "`n=== APPX Package Installation Script ===" -ForegroundColor Cyan
-    Write-Host "Version: 1.0.0`n" -ForegroundColor Gray
+    Write-Host "Version: 2.0.1`n" -ForegroundColor Gray
 }
 
 process {

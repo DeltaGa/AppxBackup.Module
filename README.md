@@ -1,10 +1,27 @@
-# AppxBackup PowerShell Module v2.0.0
+# AppxBackup PowerShell Module v2.0.1
 
 ## Windows Application Package Backup & Restoration Toolkit
 
-**Version:** 2.0.0  
+**Version:** 2.0.1  
 **Release Date:** January 15, 2026  
 **PowerShell:** 5.1+ (7.5+ Recommended)
+
+---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [System Requirements](#system-requirements)
+- [Installation](#installation)
+- [Workflow Example](#workflow-example)
+- [Available Commands](#available-commands)
+- [Usage Examples](#usage-examples)
+- [Troubleshooting](#troubleshooting)
+- [Limitations](#limitations)
+- [Module Architecture](#module-architecture)
+- [Support](#support)
+- [Changelog](#changelog)
+- [Citations](#citations)
 
 ---
 
@@ -84,7 +101,7 @@ Get-Module AppxBackup
 
 ---
 
-## Complete Workflow Example
+## Workflow Example
 
 ### Scenario: Backup and Restore WorkMate App
 
@@ -393,6 +410,45 @@ When reporting issues, include:
 2. Windows version (`Get-ComputerInfo | Select OSName, OSVersion`)
 3. Error message and stack trace
 4. Log file from `$env:TEMP\AppxBackup_*.log`
+
+---
+
+## Changelog
+
+### Version 2.0.1 (January 20, 2026)
+
+#### Dependency Packaging
+- Replaced bundle system with ZIP archives (.appxpack) containing packages, certificates, and metadata
+- Metadata-driven installation orchestration with ordered dependency resolution
+
+#### Configuration System
+- Introduced external JSON-based configuration system for module extensibility
+
+#### Manifest Parsing
+- Rewrote Get-AppxManifestData with multi-tier fallback strategies for namespace resolution
+- Handles malformed and non-standard manifests without hard dependency on Microsoft schemas
+
+#### Certificate Management
+- Automatic installation to Trusted Root store immediately after creation
+- Privilege escalation fallback with intelligent warnings
+- Individual certificates for each dependency in ZIP archives
+
+#### SDK Tool Validation
+- Test-AppxToolAvailability now returns tool path string instead of boolean
+- Mandatory validation in Backup-AppxPackage with installation diagnostics and PATH analysis
+
+#### Process Execution
+- Unified process safety with tool-specific timeouts
+- Output buffer limit per stream to prevent memory exhaustion
+
+#### Installation
+- Extended Install-AppxBackup to support ZIP archives with nested package handling
+- Improved progress reporting with separate extraction, validation, and installation stages
+
+#### Future Changes (Planned)
+- Extend Get-AppxBackupInfo to analyze .appxpack files with full metadata extraction
+- Extend Test-AppxPackageIntegrity to validate .appxpack archive structure and signatures
+- Extend Test-AppxBackupCompatibility to assess system compatibility for .appxpack installation
 
 ---
 

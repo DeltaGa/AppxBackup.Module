@@ -88,7 +88,7 @@
     - Windows 10 1809+ or Windows 11
     
     Author: DeltaGa
-    Version: 2.0.0
+    Version: 2.0.1
 #>
 
 function Backup-AppxPackage {
