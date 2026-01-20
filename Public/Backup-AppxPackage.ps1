@@ -271,6 +271,7 @@ Windows SDK is MANDATORY for reliable APPX backup operations.
             $dependencyInfo = $null
             $dependencyPackages = @()
             $bundlePath = $null
+            $bundleWorkDir = $null
             $isZipArchive = $false
             
             if ($IncludeDependencies.IsPresent -or $DependencyReportOnly.IsPresent) {
@@ -407,17 +408,10 @@ Windows SDK is MANDATORY for reliable APPX backup operations.
                         
                         Write-AppxLog -Message "Creating certificate for dependency: $($dep.Name)" -Level 'Verbose'
                         
-                        # Get dependency manifest to extract publisher
-                        $depManifestPath = [System.IO.Path]::Combine(
-                            (Split-Path $dep.PackagePath -Parent),
-                            [System.IO.Path]::GetFileNameWithoutExtension($dep.PackagePath)
-                        )
-                        
-                        # If dependency package is in temp directory, we need to get publisher from manifest
-                        # For now, use a generic subject if manifest parsing fails
+                        # Get publisher from installed package
                         $depPublisher = $null
                         try {
-                            # Try to find the original installed package path to get manifest
+                            # Find the installed package to get publisher
                             $depInstalled = Get-AppxPackage | Where-Object { 
                                 $_.Name -eq $dep.Name -and $_.Version -eq $dep.Version 
                             } | Select-Object -First 1
@@ -426,19 +420,130 @@ Windows SDK is MANDATORY for reliable APPX backup operations.
                                 $depPublisher = $depInstalled.Publisher
                                 Write-AppxLog -Message "Extracted publisher for $($dep.Name): $depPublisher" -Level 'Debug'
                             }
+                            else {
+                                # Fallback: try without version match
+                                $depInstalled = Get-AppxPackage -Name $dep.Name | Select-Object -First 1
+                                if ($depInstalled) {
+                                    $depPublisher = $depInstalled.Publisher
+                                    Write-AppxLog -Message "Extracted publisher (no version match) for $($dep.Name): $depPublisher" -Level 'Debug'
+                                }
+                            }
                         }
                         catch {
-                            Write-AppxLog -Message "Could not extract publisher for $($dep.Name), using fallback" -Level 'Debug'
+                            Write-AppxLog -Message "Could not extract publisher for $($dep.Name): $_" -Level 'Debug'
                         }
+                        
+                        # Skip if no publisher found
+                        if ([string]::IsNullOrWhiteSpace($depPublisher)) {
+                            Write-AppxLog -Message "WARNING: No publisher found for $($dep.Name), skipping certificate and signing" -Level 'Warning'
+                            # Add package without certificate (UNSIGNED)
+                            $allPackageFiles += @{
+                                PackagePath          = $dep.PackagePath
+                                CertificatePath      = $null
+                                CertificateThumbprint = $null
+                                Name                 = $dep.Name
+                                Version              = $dep.Version
+                                Architecture         = $dep.Architecture
+                            }
+                            continue
+                        }
+                        
+                        # Generate package name for certificate
+                        $depPackageName = "$($dep.Name)_$($dep.Version)_$($dep.Architecture)"
                         
                         # Create certificate for this dependency
                         $depCertResult = New-AppxDependencyCertificate `
-                            -DependencyPackagePath (Split-Path $dep.PackagePath -Parent) `
+                            -PackageName $depPackageName `
                             -OutputDirectory $bundleWorkDir `
                             -PublisherSubject $depPublisher
                         
                         if ($depCertResult.Success) {
                             Write-AppxLog -Message "Certificate created for $($dep.Name): $($depCertResult.Thumbprint)" -Level 'Debug'
+                            
+                            # INSTALL THE CERTIFICATE IMMEDIATELY (mirroring vanilla backup)
+                            Write-AppxLog -Message "Installing certificate for $($dep.Name) to Trusted Root store..." -Level 'Debug'
+                            
+                            try {
+                                # Try LocalMachine\Root first (requires Administrator)
+                                try {
+                                    Import-Certificate -FilePath $depCertResult.CertificatePath `
+                                        -CertStoreLocation "Cert:\LocalMachine\Root" `
+                                        -ErrorAction Stop | Out-Null
+                                    
+                                    Write-AppxLog -Message "Certificate installed to LocalMachine\Root for $($dep.Name)" -Level 'Debug'
+                                }
+                                catch {
+                                    # Fall back to CurrentUser\Root (no admin required)
+                                    Import-Certificate -FilePath $depCertResult.CertificatePath `
+                                        -CertStoreLocation "Cert:\CurrentUser\Root" `
+                                        -ErrorAction Stop | Out-Null
+                                    
+                                    Write-AppxLog -Message "Certificate installed to CurrentUser\Root for $($dep.Name)" -Level 'Debug'
+                                }
+                            }
+                            catch {
+                                Write-AppxLog -Message "WARNING: Failed to install certificate for $($dep.Name): $_" -Level 'Warning'
+                                # Continue even if certificate installation fails
+                            }
+                            
+                            # SIGN THE DEPENDENCY PACKAGE IMMEDIATELY
+                            try {
+                                # Get certificate from store by thumbprint
+                                $depCertPath = "Cert:\CurrentUser\My\$($depCertResult.Thumbprint)"
+                                $depCert = Get-Item -LiteralPath $depCertPath -ErrorAction Stop
+                                
+                                Write-AppxLog -Message "Signing dependency package: $($dep.Name)" -Level 'Debug'
+                                
+                                # Find SignTool.exe
+                                $signToolPath = $null
+                                $makeAppxPath = Get-Command 'makeappx.exe' -ErrorAction SilentlyContinue | 
+                                    Select-Object -First 1 -ExpandProperty Source
+                                
+                                if ($makeAppxPath) {
+                                    $sdkDir = Split-Path -Path $makeAppxPath -Parent
+                                    $signToolTest = [System.IO.Path]::Combine($sdkDir, 'signtool.exe')
+                                    if (Test-Path -LiteralPath $signToolTest) {
+                                        $signToolPath = $signToolTest
+                                    }
+                                }
+                                
+                                if ($null -eq $signToolPath) {
+                                    $signToolCmd = Get-Command 'signtool.exe' -ErrorAction SilentlyContinue | 
+                                        Select-Object -First 1
+                                    if ($signToolCmd) {
+                                        $signToolPath = $signToolCmd.Source
+                                    }
+                                }
+                                
+                                if ($null -eq $signToolPath) {
+                                    throw "SignTool.exe not found"
+                                }
+                                
+                                # Sign the dependency package
+                                $signArgs = @(
+                                    'sign',
+                                    '/fd', 'SHA256',
+                                    '/sha1', $depCert.Thumbprint,
+                                    '/v',
+                                    $dep.PackagePath
+                                )
+                                
+                                $signResult = Invoke-ProcessSafely -FilePath $signToolPath `
+                                    -ArgumentList $signArgs `
+                                    -TimeoutSeconds 120 `
+                                    -NoWindow
+                                
+                                if ($signResult.Success) {
+                                    Write-AppxLog -Message "Dependency package signed: $($dep.Name)" -Level 'Debug'
+                                }
+                                else {
+                                    Write-AppxLog -Message "WARNING: Failed to sign dependency $($dep.Name): Exit code $($signResult.ExitCode)" -Level 'Warning'
+                                }
+                            }
+                            catch {
+                                Write-AppxLog -Message "WARNING: Failed to sign dependency $($dep.Name): $_" -Level 'Warning'
+                                # Continue even if signing fails - package still usable with certificate
+                            }
                             
                             # Add to package files array
                             $allPackageFiles += @{
@@ -452,7 +557,7 @@ Windows SDK is MANDATORY for reliable APPX backup operations.
                         }
                         else {
                             Write-AppxLog -Message "WARNING: Certificate creation failed for $($dep.Name): $($depCertResult.Error)" -Level 'Warning'
-                            # Add package without certificate
+                            # Add package without certificate (UNSIGNED)
                             $allPackageFiles += @{
                                 PackagePath          = $dep.PackagePath
                                 CertificatePath      = $null
@@ -501,18 +606,133 @@ Windows SDK is MANDATORY for reliable APPX backup operations.
                     
                     Write-AppxLog -Message "Installation manifest generated" -Level 'Debug'
                     
+                    # NOW SIGN THE MAIN PACKAGE (before adding to ZIP)
+                    # We need to create certificate and sign just like vanilla backup
+                    Write-AppxLog -Message "Creating and signing main package for ZIP..." -Level 'Verbose'
+                    
+                    try {
+                        # Create certificate for main package
+                        $certSubject = if ($CertificateSubject) { 
+                            $CertificateSubject 
+                        } else { 
+                            $manifestData.Publisher 
+                        }
+                        
+                        $mainCertParams = @{
+                            Subject = $certSubject
+                            OutputPath = $mainCertPath
+                            ValidityYears = $script:AppxBackupConfig.DefaultCertificateValidityYears
+                            KeyLength = $script:AppxBackupConfig.DefaultKeyLength
+                        }
+                        
+                        if ($CertificatePassword) {
+                            $mainCertParams['Password'] = $CertificatePassword
+                        }
+                        
+                        $mainCertificate = New-AppxBackupCertificate @mainCertParams
+                        Write-AppxLog -Message "Main package certificate created: $($mainCertificate.Thumbprint)" -Level 'Debug'
+                        
+                        # Update main package entry with certificate info
+                        $mainPackageFileEntry.CertificateThumbprint = $mainCertificate.Thumbprint
+                        
+                        # INSTALL THE MAIN CERTIFICATE IMMEDIATELY (mirroring vanilla backup)
+                        Write-AppxLog -Message "Installing main package certificate to Trusted Root store..." -Level 'Verbose'
+                        
+                        try {
+                            # Try LocalMachine\Root first (requires Administrator)
+                            try {
+                                Import-Certificate -FilePath $mainCertPath `
+                                    -CertStoreLocation "Cert:\LocalMachine\Root" `
+                                    -ErrorAction Stop | Out-Null
+                                
+                                Write-AppxLog -Message "Main certificate installed to LocalMachine\Root (system-wide trust)" -Level 'Info'
+                            }
+                            catch {
+                                # Fall back to CurrentUser\Root (no admin required)
+                                Import-Certificate -FilePath $mainCertPath `
+                                    -CertStoreLocation "Cert:\CurrentUser\Root" `
+                                    -ErrorAction Stop | Out-Null
+                                
+                                Write-AppxLog -Message "Main certificate installed to CurrentUser\Root (user trust only)" -Level 'Warning'
+                                Write-AppxLog -Message "For system-wide trust, run as Administrator" -Level 'Warning'
+                            }
+                        }
+                        catch {
+                            Write-AppxLog -Message "WARNING: Failed to install main certificate: $_" -Level 'Warning'
+                            # Continue even if certificate installation fails
+                        }
+                        
+                        # Sign the main package with SignTool
+                        $mainCertPath_store = "Cert:\CurrentUser\My\$($mainCertificate.Thumbprint)"
+                        $mainCert = Get-Item -LiteralPath $mainCertPath_store -ErrorAction Stop
+                        
+                        Write-AppxLog -Message "Signing main package with certificate: $($mainCert.Thumbprint)" -Level 'Debug'
+                        
+                        # Find SignTool.exe
+                        $signToolPath = $null
+                        $makeAppxPath = Get-Command 'makeappx.exe' -ErrorAction SilentlyContinue | 
+                            Select-Object -First 1 -ExpandProperty Source
+                        
+                        if ($makeAppxPath) {
+                            $sdkDir = Split-Path -Path $makeAppxPath -Parent
+                            $signToolTest = [System.IO.Path]::Combine($sdkDir, 'signtool.exe')
+                            if (Test-Path -LiteralPath $signToolTest) {
+                                $signToolPath = $signToolTest
+                            }
+                        }
+                        
+                        if ($null -eq $signToolPath) {
+                            $signToolCmd = Get-Command 'signtool.exe' -ErrorAction SilentlyContinue | 
+                                Select-Object -First 1
+                            if ($signToolCmd) {
+                                $signToolPath = $signToolCmd.Source
+                            }
+                        }
+                        
+                        if ($null -eq $signToolPath) {
+                            throw "SignTool.exe not found"
+                        }
+                        
+                        # Copy main package to work directory for signing
+                        $mainPackageInZip = [System.IO.Path]::Combine($bundleWorkDir, [System.IO.Path]::GetFileName($packageOutputPath))
+                        Copy-Item -Path $packageOutputPath -Destination $mainPackageInZip -Force
+                        
+                        # Sign the copy that will go in the ZIP
+                        $signArgs = @(
+                            'sign',
+                            '/fd', 'SHA256',
+                            '/sha1', $mainCert.Thumbprint,
+                            '/v',
+                            $mainPackageInZip
+                        )
+                        
+                        $signResult = Invoke-ProcessSafely -FilePath $signToolPath `
+                            -ArgumentList $signArgs `
+                            -TimeoutSeconds 300 `
+                            -NoWindow
+                        
+                        if ($signResult.Success) {
+                            Write-AppxLog -Message "Main package signed successfully" -Level 'Info'
+                            # Update the main package path to point to the signed version
+                            $mainPackageFileEntry.PackagePath = $mainPackageInZip
+                        }
+                        else {
+                            Write-AppxLog -Message "WARNING: Failed to sign main package: Exit code $($signResult.ExitCode)" -Level 'Warning'
+                        }
+                    }
+                    catch {
+                        Write-AppxLog -Message "WARNING: Failed to create certificate or sign main package: $_" -Level 'Warning'
+                        # Continue anyway - unsigned main package
+                    }
+                    
                     # Create ZIP archive extension from configuration
-                    $zipExtension = Get-AppxDefault -Category 'archiveExtensions' -Key 'zipArchive' -ConfigName 'ZipPackagingConfiguration' -FallbackValue '.appxpack'
+                    $zipExtension = Get-AppxDefault 'archiveExtensions.zipArchive' 'ZipPackagingConfiguration' '.appxpack'
                     $zipOutputPath = $packageOutputPath -replace '\.appx$', $zipExtension -replace '\.msix$', $zipExtension
                     
                     Write-AppxLog -Message "Creating ZIP archive: $zipOutputPath" -Level 'Info'
+                    Write-Host "[INFO] All packages signed, creating ZIP archive..." -ForegroundColor Cyan
                     
-                    # Copy main package to work directory for ZIP inclusion
-                    $mainPackageInZip = [System.IO.Path]::Combine($bundleWorkDir, [System.IO.Path]::GetFileName($packageOutputPath))
-                    Copy-Item -LiteralPath $packageOutputPath -Destination $mainPackageInZip -Force
-                    Write-AppxLog -Message "Copied main package to ZIP work directory" -Level 'Debug'
-                    
-                    # Create the ZIP archive
+                    # Create the ZIP archive with all SIGNED packages and certificates
                     $zipResult = New-AppxBackupZipArchive `
                         -SourceDirectory $bundleWorkDir `
                         -OutputPath $zipOutputPath `
@@ -631,18 +851,24 @@ Windows SDK is MANDATORY for reliable APPX backup operations.
                     -Status "Stage $progressStage/$totalStages : Signing package" `
                     -PercentComplete (($progressStage / $totalStages) * 100)
                 
-                Write-AppxLog -Message "Signing package..." -Level 'Verbose'
-                
-                if ($PSCmdlet.ShouldProcess($packageOutputPath, "Sign package with certificate")) {
-                    # APPX packages MUST be signed with SignTool.exe, not Set-AuthenticodeSignature
-                    # Set-AuthenticodeSignature uses wrong SIP provider and fails with SIP_SUBJECTINFO error
+                # ZIP archives (.appxpack) cannot be signed - certificates are included inside
+                if ($isZipArchive) {
+                    Write-AppxLog -Message "Skipping signing - ZIP archive packages are not signed (certificates included inside)" -Level 'Info'
+                    Write-Host "[INFO] ZIP archive complete - certificates included for all packages" -ForegroundColor Cyan
+                }
+                else {
+                    Write-AppxLog -Message "Signing package..." -Level 'Verbose'
                     
-                    try {
-                        # Get certificate from store by thumbprint
-                        $certPath = "Cert:\CurrentUser\My\$($certificate.Thumbprint)"
-                        $cert = Get-Item -LiteralPath $certPath -ErrorAction Stop
+                    if ($PSCmdlet.ShouldProcess($packageOutputPath, "Sign package with certificate")) {
+                        # APPX packages MUST be signed with SignTool.exe, not Set-AuthenticodeSignature
+                        # Set-AuthenticodeSignature uses wrong SIP provider and fails with SIP_SUBJECTINFO error
                         
-                        Write-AppxLog -Message "Signing with certificate: $($cert.Thumbprint)" -Level 'Debug'
+                        try {
+                            # Get certificate from store by thumbprint
+                            $certPath = "Cert:\CurrentUser\My\$($certificate.Thumbprint)"
+                            $cert = Get-Item -LiteralPath $certPath -ErrorAction Stop
+                            
+                            Write-AppxLog -Message "Signing with certificate: $($cert.Thumbprint)" -Level 'Debug'
                         
                         # Find SignTool.exe (should be in same SDK as MakeAppx)
                         $signToolPath = $null
@@ -715,9 +941,10 @@ Windows SDK is MANDATORY for reliable APPX backup operations.
                     }
                     catch {
                         Write-AppxLog -Message "Failed to sign package: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Error'
-                throw "Failed to sign package: $_"
+                        throw "Failed to sign package: $_"
                     }
                 }
+                }  # End else (not ZIP archive)
             }
             else {
                 Write-AppxLog -Message "Certificate creation and signing skipped (-NoCertificate)" -Level 'Warning'

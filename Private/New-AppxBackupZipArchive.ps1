@@ -122,8 +122,8 @@ function New-AppxBackupZipArchive {
         
         try {
             # Get directory names from configuration
-            $packagesDirName = Get-AppxDefault -Category 'archiveStructure' -Key 'packagesDirectory' -ConfigName 'ZipPackagingConfiguration' -FallbackValue 'Packages'
-            $certsDirName = Get-AppxDefault -Category 'archiveStructure' -Key 'certificatesDirectory' -ConfigName 'ZipPackagingConfiguration' -FallbackValue 'Certificates'
+            $packagesDirName = Get-AppxDefault 'archiveStructure.packagesDirectory' 'ZipPackagingConfiguration' 'Packages'
+            $certsDirName = Get-AppxDefault 'archiveStructure.certificatesDirectory' 'ZipPackagingConfiguration' 'Certificates'
             
             # Create subdirectories in temp location
             $packagesDir = [System.IO.Path]::Combine($tempZipDir, $packagesDirName)
@@ -154,15 +154,15 @@ function New-AppxBackupZipArchive {
             }
             
             # Create AppxBackupManifest.json
-            $manifestFileName = Get-AppxDefault -Category 'archiveStructure' -Key 'manifestFileName' -ConfigName 'ZipPackagingConfiguration' -FallbackValue 'AppxBackupManifest.json'
+            $manifestFileName = Get-AppxDefault 'archiveStructure.manifestFileName' 'ZipPackagingConfiguration' 'AppxBackupManifest.json'
             $manifestPath = [System.IO.Path]::Combine($tempZipDir, $manifestFileName)
             $manifestJson = $ManifestData | ConvertTo-Json -Depth 10
             [System.IO.File]::WriteAllText($manifestPath, $manifestJson, [System.Text.Encoding]::UTF8)
             Write-AppxLog -Message "Created $manifestFileName" -Level 'Debug'
             
             # Create README.txt with installation instructions
-            $readmeFileName = Get-AppxDefault -Category 'archiveStructure' -Key 'readmeFileName' -ConfigName 'ZipPackagingConfiguration' -FallbackValue 'README.txt'
-            $projectUrl = Get-AppxDefault -Category 'readmeTemplate' -Key 'projectUrl' -ConfigName 'ZipPackagingConfiguration' -FallbackValue 'https://github.com/DeltaGa/AppxBackup.Module'
+            $readmeFileName = Get-AppxDefault 'archiveStructure.readmeFileName' 'ZipPackagingConfiguration' 'README.txt'
+            $projectUrl = Get-AppxDefault 'readmeTemplate.projectUrl' 'ZipPackagingConfiguration' 'https://github.com/DeltaGa/AppxBackup.Module'
             $readmePath = [System.IO.Path]::Combine($tempZipDir, $readmeFileName)
             $readmeContent = @"
 ==============================================================================

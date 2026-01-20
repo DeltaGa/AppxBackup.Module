@@ -405,7 +405,7 @@ function Invoke-ProcessSafely {
                 Write-Host "Duration: $($duration.TotalSeconds.ToString('F2'))s" -ForegroundColor Yellow
                 
                 if ($standardError -and $standardError.Trim().Length -gt 0) {
-                    Write-AppxLog -Message "STDERR Output (${$standardError.Length} chars):`n$standardError" -Level 'Error'
+                    Write-AppxLog -Message "STDERR Output ($($standardError.Length) chars):`n$standardError" -Level 'Error'
                     Write-Host "`n--- STDERR ($($standardError.Length) chars) ---" -ForegroundColor Red
                     Write-Host $standardError -ForegroundColor Gray
                 }

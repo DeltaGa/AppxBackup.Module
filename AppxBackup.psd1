@@ -80,7 +80,6 @@ Key Features:
         'New-AppxBackupCertificate',
         'Test-AppxPackageIntegrity',
         'Get-AppxBackupInfo',
-        'Restore-AppxPackage',
         'Export-AppxDependencies',
         'Get-AppxToolPath',
         'Test-AppxBackupCompatibility'
@@ -96,7 +95,8 @@ Key Features:
     AliasesToExport = @(
         'Backup-AppX',
         'Export-AppX',
-        'Save-AppxPackage'
+        'Save-AppxPackage',
+        'Restore-AppxPackage'
     )
 
     # DSC resources to export from this module
@@ -114,7 +114,6 @@ Key Features:
         'Public\New-AppxBackupCertificate.ps1',
         'Public\Test-AppxPackageIntegrity.ps1',
         'Public\Get-AppxBackupInfo.ps1',
-        'Public\Restore-AppxPackage.ps1',
         'Public\Export-AppxDependencies.ps1',
         'Public\Get-AppxToolPath.ps1',
         'Public\Test-AppxBackupCompatibility.ps1',
@@ -131,8 +130,7 @@ Key Features:
         'Config\ToolConfiguration.json',
         'Config\WindowsReservedNames.json',
         'Config\PackageConfiguration.json',
-        'Config\ModuleDefaults.json',
-        'Config\ZipPackagingConfiguration.json'
+        'Config\ModuleDefaults.json'
     )
 
     # Private data to pass to the module specified in RootModule/ModuleToProcess
@@ -173,6 +171,7 @@ BREAKING CHANGES:
 - Modern MSIX support alongside legacy APPX
 
 NEW FEATURES:
+- Zero external tool dependencies (uses Windows SDK when available)
 - Comprehensive error handling with structured logging
 - Progress indication for all long-running operations
 - Pipeline support for batch operations

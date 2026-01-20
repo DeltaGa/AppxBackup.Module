@@ -160,9 +160,8 @@ Install-AppxBackup -PackagePath "D:\Backups\WorkMate_7.5.4.0_x64.appx"
 | Function | Description |
 |----------|-------------|
 | **`Backup-AppxPackage`** | Complete backup with cert creation and signing |
-| **`Install-AppxBackup`** | Standalone installation with auto-cert handling |
+| **`Install-AppxBackup`** | Installation with auto-cert handling and dependency orchestration |
 | **`New-AppxBackupCertificate`** | Create self-signed certificates (4096-bit RSA) |
-| **`Restore-AppxPackage`** | Restore from backup with dependency resolution |
 | **`Get-AppxBackupInfo`** | Analyze backup packages without installing |
 | **`Export-AppxDependencies`** | Extract and document package dependencies |
 | **`Test-AppxPackageIntegrity`** | Validate package structure and signatures |
@@ -180,6 +179,9 @@ Install-AppxBackup -PackagePath "D:\Backups\WorkMate_7.5.4.0_x64.appx"
 - `Resolve-AppxDependencies` - Recursive dependency graph analysis
 - `ConvertTo-SecureFilePath` - Path validation and sanitization
 - `Write-AppxLog` - Structured logging with level filtering
+- `New-AppxBackupZipArchive` - ZIP archive creation for dependency packages
+- `New-AppxBackupManifest` - Installation manifest generation
+- `New-AppxDependencyCertificate` - Dependency-specific certificate creation
 
 ---
 
@@ -208,9 +210,29 @@ Backup-AppxPackage -PackagePath $app.InstallLocation `
     -NoCertificate
 ```
 
+### Dependency Operations
+
+#### 4. Backup with Dependencies (ZIP Archive)
+```powershell
+# Creates .appxpack file with main package + all dependencies
+Backup-AppxPackage -PackagePath $app.InstallLocation `
+    -OutputPath "C:\Backups" `
+    -IncludeDependencies
+```
+
+#### 5. Dependency Analysis Only (No Backup)
+```powershell
+# Analyze dependencies without creating backup
+Backup-AppxPackage -PackagePath $app.InstallLocation `
+    -OutputPath "C:\Backups" `
+    -DependencyReportOnly
+
+# Dependencies report saved to: PackageName_Dependencies.json
+```
+
 ### Batch Operations
 
-#### 4. Backup All Apps from a Publisher
+#### 6. Backup All Apps from a Publisher
 ```powershell
 Get-AppxPackage -Publisher "*Microsoft*" | 
     ForEach-Object {
@@ -220,43 +242,38 @@ Get-AppxPackage -Publisher "*Microsoft*" |
     }
 ```
 
-#### 5. Backup with Dependency Analysis
-```powershell
-$result = Backup-AppxPackage -PackagePath $app.InstallLocation `
-    -OutputPath "C:\Backups" `
-    -IncludeDependencies
-
-# Export dependency report
-$result.DependencyInfo | Export-Csv "dependencies.csv"
-```
-
 ### Installation Operations
 
-#### 6. Basic Installation
+#### 7. Install Standalone Package
 ```powershell
 Install-AppxBackup -PackagePath "C:\Backups\MyApp.appx"
 ```
 
-#### 7. Install for Current User Only (No Admin)
+#### 8. Install ZIP Archive with Dependencies
+```powershell
+# Automatically extracts, installs certificates, and installs all packages
+Install-AppxBackup -PackagePath "C:\Backups\MyApp.appxpack"
+```
+
+#### 9. Install for Current User Only (No Admin)
 ```powershell
 Install-AppxBackup -PackagePath "C:\Backups\MyApp.appx" `
     -CertStoreLocation CurrentUser
 ```
 
-#### 8. Force Reinstall
+#### 10. Force Reinstall
 ```powershell
 Install-AppxBackup -PackagePath "C:\Backups\MyApp.appx" -Force
 ```
 
-#### 9. Manual Certificate Specification
-```powershell
-Install-AppxBackup -PackagePath "C:\Backups\MyApp.appx" `
-    -CertificatePath "C:\Certs\MyCompanyCert.cer"
-```
-
-#### 10. Skip Certificate (Already Trusted)
+#### 11. Skip Certificate (Already Trusted)
 ```powershell
 Install-AppxBackup -PackagePath "C:\Backups\MyApp.appx" -SkipCertificate
+```
+
+#### 12. Allow Unsigned Packages (Developer Mode)
+```powershell
+Install-AppxBackup -PackagePath "C:\Backups\MyApp.appx" -AllowUnsigned
 ```
 
 ---
@@ -307,25 +324,25 @@ AppxBackup.Module/
 ├── AppxBackup.psm1           # Module loader
 ├── Import-AppxBackup.ps1     # Quick import helper
 │
-├── Config/                   # Externalized configuration (5 total)
+├── Config/                   # Externalized configuration
 │   ├── ModuleDefaults.json           # Core module constants
 │   ├── MimeTypes.json                # MIME type mappings
 │   ├── ToolConfiguration.json        # Tool-specific settings
 │   ├── WindowsReservedNames.json     # Reserved filenames
-│   └── PackageConfiguration.json     # Package-related constants
+│   ├── PackageConfiguration.json     # Package-related constants
+│   └── ZipPackagingConfiguration.json # ZIP archive settings
 │
-├── Public/                   # Exported functions (9 total)
+├── Public/                   # Exported functions
 │   ├── Backup-AppxPackage.ps1          # Main backup function
-│   ├── Install-AppxBackup.ps1          # Standalone installer
+│   ├── Install-AppxBackup.ps1          # Package installer (Restore-AppxPackage alias)
 │   ├── New-AppxBackupCertificate.ps1   # Certificate creation
-│   ├── Restore-AppxPackage.ps1         # Package restoration
 │   ├── Get-AppxBackupInfo.ps1          # Package analysis
 │   ├── Export-AppxDependencies.ps1     # Dependency export
 │   ├── Test-AppxPackageIntegrity.ps1   # Integrity validation
 │   ├── Test-AppxBackupCompatibility.ps1 # Compatibility check
 │   └── Get-AppxToolPath.ps1            # Tool locator
 │
-├── Private/                  # Internal functions (9 total)
+├── Private/                  # Internal functions
 │   ├── Get-AppxConfiguration.ps1       # Configuration loader
 │   ├── Get-AppxDefault.ps1             # Configuration value accessor
 │   ├── Invoke-ProcessSafely.ps1        # Process execution
@@ -334,7 +351,10 @@ AppxBackup.Module/
 │   ├── Test-AppxToolAvailability.ps1   # Tool validation
 │   ├── Resolve-AppxDependencies.ps1    # Dependency resolution
 │   ├── ConvertTo-SecureFilePath.ps1    # Path sanitization
-│   └── Write-AppxLog.ps1               # Logging system
+│   ├── Write-AppxLog.ps1               # Logging system
+│   ├── New-AppxBackupZipArchive.ps1    # ZIP archive creation
+│   ├── New-AppxBackupManifest.ps1      # Installation manifest generation
+│   └── New-AppxDependencyCertificate.ps1 # Dependency certificate creation
 │
 └── Examples/                 # Usage examples
     └── UsageExamples.md
@@ -357,6 +377,7 @@ All hardcoded values are externalized to JSON configuration files in the `Config
 
 ### Getting Help
 
+- **Documentation:** Enter `help Command` (e. g. `help Backup-AppxPackage`)
 - **Examples:** See `/Examples/UsageExamples.md`
 - **Issues:** Check logs in `$env:TEMP\AppxBackup_*.log`
 

@@ -40,6 +40,14 @@
 .PARAMETER SkipDependencies
     For .appxpack files, install only the main package, skipping dependencies.
 
+.PARAMETER SkipSignatureValidation
+    Skip package signature validation before installation.
+    Use with caution - may allow installation of corrupted packages.
+
+.PARAMETER AllowUnsigned
+    Allow installation of unsigned packages.
+    Requires developer mode enabled on Windows.
+
 .EXAMPLE
     Install-AppxBackup -PackagePath "C:\Backups\MyApp.appx"
     
@@ -110,7 +118,13 @@ function Install-AppxBackup {
     [string]$ExtractPath,
     
     [Parameter()]
-    [switch]$SkipDependencies
+    [switch]$SkipDependencies,
+    
+    [Parameter()]
+    [switch]$SkipSignatureValidation,
+    
+    [Parameter()]
+    [switch]$AllowUnsigned
 )
 
 begin {
@@ -119,6 +133,28 @@ begin {
     # Check PowerShell version
     if ($PSVersionTable.PSVersion.Major -lt 5) {
         throw "This script requires PowerShell 5.1 or later. Current version: $($PSVersionTable.PSVersion)"
+    }
+    
+    # Validate Windows SDK tools if signature validation is needed
+    $signToolPath = $null
+    if (-not $SkipSignatureValidation.IsPresent -and -not $AllowUnsigned.IsPresent) {
+        Write-AppxLog -Message "Validating Windows SDK tools for signature validation..." -Level 'Verbose'
+        
+        try {
+            $signToolPath = Test-AppxToolAvailability -ToolName 'SignTool' -ThrowOnError:$false
+            if ($null -eq $signToolPath) {
+                Write-AppxLog -Message "SignTool.exe not found - signature validation will be skipped" -Level 'Warning'
+                Write-AppxLog -Message "Install Windows SDK for signature validation capability" -Level 'Info'
+                $SkipSignatureValidation = $true
+            }
+            else {
+                Write-AppxLog -Message "Found SignTool: $signToolPath" -Level 'Debug'
+            }
+        }
+        catch {
+            Write-AppxLog -Message "Failed to locate SignTool.exe - signature validation will be skipped: $_" -Level 'Warning'
+            $SkipSignatureValidation = $true
+        }
     }
     
     Write-Host "`n=== APPX Package Installation Script ===" -ForegroundColor Cyan
@@ -140,6 +176,53 @@ process {
         Write-Host "  Location: $packageFullPath" -ForegroundColor Gray
         Write-Host "  Type: $(if ($isZipArchive) { 'ZIP Archive (.appxpack)' } else { 'Standalone Package' })" -ForegroundColor $(if ($isZipArchive) { 'Cyan' } else { 'Gray' })
         
+        # SIGNATURE VALIDATION (for standalone packages only)
+        if (-not $isZipArchive -and -not $SkipSignatureValidation.IsPresent -and $signToolPath -and -not $AllowUnsigned.IsPresent) {
+            Write-Host "`n  [VALIDATION] Package Signature..." -ForegroundColor Cyan
+            Write-AppxLog -Message "Validating package signature..." -Level 'Verbose'
+            
+            try {
+                $verifyResult = Invoke-ProcessSafely -FilePath $signToolPath `
+                    -ArgumentList @('verify', '/pa', "`"$packageFullPath`"") `
+                    -TimeoutSeconds 30 `
+                    -NoWindow
+                
+                if ($verifyResult.Success -and $verifyResult.ExitCode -eq 0) {
+                    Write-Host "    Status: Valid signature" -ForegroundColor Green
+                    Write-AppxLog -Message "Package signature validated successfully" -Level 'Info'
+                }
+                else {
+                    Write-Host "    Status: Signature validation failed" -ForegroundColor Yellow
+                    Write-AppxLog -Message "Signature validation failed: $($verifyResult.StandardError)" -Level 'Warning'
+                    
+                    if (-not $Force.IsPresent) {
+                        Write-Host "    [WARNING] Package signature is invalid or untrusted" -ForegroundColor Yellow
+                        Write-Host "    Use -Force to continue anyway or -SkipSignatureValidation to skip check" -ForegroundColor Yellow
+                        throw "Package signature validation failed. Use -Force to continue."
+                    }
+                }
+            }
+            catch {
+                Write-Host "    Status: Validation error - $_" -ForegroundColor Yellow
+                Write-AppxLog -Message "Signature validation error: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Warning'
+                
+                if (-not $Force.IsPresent) {
+                    throw "Signature validation failed: $_"
+                }
+            }
+        }
+        elseif (-not $isZipArchive) {
+            if ($AllowUnsigned.IsPresent) {
+                Write-Host "`n  [VALIDATION] Signature Check: Skipped (AllowUnsigned)" -ForegroundColor Yellow
+            }
+            elseif ($SkipSignatureValidation.IsPresent) {
+                Write-Host "`n  [VALIDATION] Signature Check: Skipped (user request)" -ForegroundColor Yellow
+            }
+            elseif (-not $signToolPath) {
+                Write-Host "`n  [VALIDATION] Signature Check: Skipped (SignTool unavailable)" -ForegroundColor Yellow
+            }
+        }
+        
         # Variables for cleanup
         $extractedPath = $null
         $manifestData = $null
@@ -151,8 +234,8 @@ process {
             
             # Determine extraction path
             if (-not $ExtractPath) {
-                $extractPrefix = Get-AppxDefault -Category 'temporaryDirectories' -Key 'extractTempPrefix' -ConfigName 'ZipPackagingConfiguration' -FallbackValue 'AppxExtract_'
-                $guidFormat = Get-AppxDefault -Category 'temporaryDirectories' -Key 'guidFormat' -ConfigName 'ZipPackagingConfiguration' -FallbackValue 'D'
+                $extractPrefix = Get-AppxDefault 'temporaryDirectories.extractTempPrefix' 'ZipPackagingConfiguration' 'AppxExtract_'
+                $guidFormat = Get-AppxDefault 'temporaryDirectories.guidFormat' 'ZipPackagingConfiguration' 'D'
                 $extractedPath = [System.IO.Path]::Combine($env:TEMP, "$extractPrefix$((New-Guid).ToString($guidFormat))")
             }
             else {
@@ -174,9 +257,9 @@ process {
             }
             
             # Get directory names from configuration
-            $packagesDirName = Get-AppxDefault -Category 'archiveStructure' -Key 'packagesDirectory' -ConfigName 'ZipPackagingConfiguration' -FallbackValue 'Packages'
-            $certsDirName = Get-AppxDefault -Category 'archiveStructure' -Key 'certificatesDirectory' -ConfigName 'ZipPackagingConfiguration' -FallbackValue 'Certificates'
-            $manifestFileName = Get-AppxDefault -Category 'archiveStructure' -Key 'manifestFileName' -ConfigName 'ZipPackagingConfiguration' -FallbackValue 'AppxBackupManifest.json'
+            $packagesDirName = Get-AppxDefault 'archiveStructure.packagesDirectory' 'ZipPackagingConfiguration' 'Packages'
+            $certsDirName = Get-AppxDefault 'archiveStructure.certificatesDirectory' 'ZipPackagingConfiguration' 'Certificates'
+            $manifestFileName = Get-AppxDefault 'archiveStructure.manifestFileName' 'ZipPackagingConfiguration' 'AppxBackupManifest.json'
             
             # Verify structure
             $packagesDir = [System.IO.Path]::Combine($extractedPath, $packagesDirName)
@@ -401,6 +484,11 @@ process {
                         $installParams['ForceUpdateFromAnyVersion'] = $true
                     }
                     
+                    if ($AllowUnsigned.IsPresent) {
+                        Write-AppxLog -Message "Adding AllowUnsigned flag to installation parameters" -Level 'Debug'
+                        $installParams['AllowUnsigned'] = $true
+                    }
+                    
                     Add-AppxPackage @installParams
                     
                     Write-Host "    Status: Installed successfully" -ForegroundColor Green
@@ -415,18 +503,62 @@ process {
                     Write-Host "    ERROR: Installation failed" -ForegroundColor Red
                     Write-Host "    Details: $_" -ForegroundColor Red
                     
-                    # Provide helpful error messages
-                    if ($_ -match '0x800B0109') {
+                    # Provide helpful error messages with clear actions
+                    if ($_ -match '0x80073D02') {
+                        # ERROR: Resources in use (apps need to be closed)
+                        Write-Host "`n    CAUSE: Package resources are currently in use" -ForegroundColor Yellow
+                        
+                        # Extract app names from error message
+                        if ($_ -match 'following apps need to be closed (.+?)\.') {
+                            $appsToClose = $Matches[1] -split '\s+'
+                            Write-Host "    APPS TO CLOSE:" -ForegroundColor Yellow
+                            foreach ($app in $appsToClose) {
+                                if ($app -match '^[A-Za-z0-9]+\.[A-Za-z0-9.]+_') {
+                                    Write-Host "      - $app" -ForegroundColor Cyan
+                                }
+                            }
+                        }
+                        
+                        Write-Host "`n    SOLUTION OPTIONS:" -ForegroundColor Green
+                        Write-Host "      1. Close the listed applications and retry installation" -ForegroundColor White
+                        Write-Host "      2. This is a dependency - installation may continue if other apps provide it" -ForegroundColor White
+                        Write-Host "      3. If this is a system framework, it may already be properly installed" -ForegroundColor White
+                        
+                        # Check if package is already installed with same or newer version
+                        $existingPkg = Get-AppxPackage -Name $pkg.Name -ErrorAction SilentlyContinue | Select-Object -First 1
+                        if ($existingPkg) {
+                            Write-Host "`n    NOTE: $($pkg.Name) is already installed (v$($existingPkg.Version))" -ForegroundColor Cyan
+                            Write-Host "          Target version: v$($pkg.Version)" -ForegroundColor Cyan
+                            if ([version]$existingPkg.Version -ge [version]$pkg.Version) {
+                                Write-Host "          Existing version is equal or newer - no action needed" -ForegroundColor Green
+                            }
+                        }
+                    }
+                    elseif ($_ -match '0x800B0109') {
                         Write-Host "    CAUSE: Certificate not trusted" -ForegroundColor Yellow
-                        Write-Host "    SOLUTION: Run as Administrator or install certificate manually" -ForegroundColor Yellow
+                        Write-Host "    SOLUTION: Run as Administrator or install certificate manually to LocalMachine\Root" -ForegroundColor Yellow
                     }
                     elseif ($_ -match '0x80073CF9') {
                         Write-Host "    CAUSE: Package conflict or already installed" -ForegroundColor Yellow
-                        Write-Host "    SOLUTION: Use -Force parameter to reinstall" -ForegroundColor Yellow
+                        Write-Host "    SOLUTION: Package may already be installed - verify with Get-AppxPackage" -ForegroundColor Yellow
+                        
+                        # Check if package exists
+                        $existingPkg = Get-AppxPackage -Name $pkg.Name -ErrorAction SilentlyContinue | Select-Object -First 1
+                        if ($existingPkg) {
+                            Write-Host "    CURRENT: $($pkg.Name) v$($existingPkg.Version) is installed" -ForegroundColor Cyan
+                            Write-Host "    TARGET:  v$($pkg.Version)" -ForegroundColor Cyan
+                        }
                     }
                     elseif ($_ -match '0x80073CF6') {
                         Write-Host "    CAUSE: Package signature invalid" -ForegroundColor Yellow
-                        Write-Host "    SOLUTION: Verify certificate is installed and trusted" -ForegroundColor Yellow
+                        Write-Host "    SOLUTION: Verify certificate is installed and trusted in LocalMachine\Root" -ForegroundColor Yellow
+                    }
+                    elseif ($_ -match '0x80070057') {
+                        Write-Host "    CAUSE: Invalid parameter (0x80070057) - Package may be corrupted or incompatible" -ForegroundColor Yellow
+                        Write-Host "    SOLUTION: Verify package integrity or try removing existing version first" -ForegroundColor Yellow
+                    }
+                    else {
+                        Write-Host "    SOLUTION: Check Windows Event Log for details" -ForegroundColor Yellow
                     }
                     
                     $failedPackages += $pkg.Name
@@ -440,20 +572,76 @@ process {
             }
         }
         
-        # Success summary
+        # Success summary with intelligent analysis
         Write-Host "`n=== Installation Complete ===" -ForegroundColor Green
-        Write-Host "Packages Installed: $($packagesToInstall.Count - $failedPackages.Count) of $($packagesToInstall.Count)" -ForegroundColor White
+        
+        $successCount = $packagesToInstall.Count - $failedPackages.Count
+        Write-Host "Packages Installed: $successCount of $($packagesToInstall.Count)" -ForegroundColor White
         
         if ($failedPackages.Count -gt 0) {
-            Write-Host "Failed Packages: $($failedPackages.Count)" -ForegroundColor Red
+            Write-Host "`nFailed Packages: $($failedPackages.Count)" -ForegroundColor Yellow
+            
+            # Analyze failures and provide actionable guidance
+            $appsInUse = @()
+            $alreadyInstalled = @()
+            $otherErrors = @()
+            
             foreach ($failed in $failedPackages) {
+                # Categorize failures based on error type
+                # Note: Would need to store error types during installation for precise categorization
+                # For now, show the failed packages and suggest verification
                 Write-Host "  - $failed" -ForegroundColor Red
+                
+                # Check if package is already installed
+                $existing = Get-AppxPackage -Name $failed -ErrorAction SilentlyContinue | Select-Object -First 1
+                if ($existing) {
+                    $alreadyInstalled += "$failed (v$($existing.Version))"
+                }
             }
+            
+            # Provide context-aware guidance
+            Write-Host "`n  ANALYSIS:" -ForegroundColor Cyan
+            
+            if ($alreadyInstalled.Count -gt 0) {
+                Write-Host "    Already Installed ($($alreadyInstalled.Count)):" -ForegroundColor Green
+                foreach ($pkg in $alreadyInstalled) {
+                    Write-Host "      [OK] $pkg" -ForegroundColor Green
+                }
+                Write-Host "    These packages are functional - installation errors can be ignored" -ForegroundColor White
+            }
+            
+            $notInstalled = $failedPackages.Count - $alreadyInstalled.Count
+            if ($notInstalled -gt 0) {
+                Write-Host "    Not Installed ($notInstalled):" -ForegroundColor Yellow
+                Write-Host "      [INFO] Some packages failed due to resources in use" -ForegroundColor White
+                Write-Host "      [ACTION] Close all UWP apps and retry installation" -ForegroundColor White
+                Write-Host "      [VERIFY] Run: Get-AppxPackage | Where-Object { " -NoNewline -ForegroundColor White
+                Write-Host "'$($failedPackages[0])' " -NoNewline -ForegroundColor Cyan
+                Write-Host "-like `$_.Name } | Select Name, Version" -ForegroundColor White
+            }
+            
+            Write-Host "`n  RECOMMENDATION:" -ForegroundColor Cyan
+            if ($alreadyInstalled.Count -eq $failedPackages.Count) {
+                Write-Host "    [SUCCESS] All 'failed' packages are already installed" -ForegroundColor Green
+                Write-Host "    [SUCCESS] System is in good state - no action needed" -ForegroundColor Green
+            }
+            elseif ($notInstalled -gt 0 -and $notInstalled -le 2) {
+                Write-Host "    [ACTION] Close running applications and retry" -ForegroundColor White
+                Write-Host "    [CHECK] Or verify dependencies are satisfied" -ForegroundColor White
+            }
+            else {
+                Write-Host "    [INFO] Review error details above for specific guidance" -ForegroundColor White
+                Write-Host "    [INFO] Check Event Viewer (Application Log) for detailed errors" -ForegroundColor White
+            }
+        }
+        else {
+            Write-Host "`n  [SUCCESS] All packages installed successfully!" -ForegroundColor Green
         }
         
         if (-not $SkipCertificate.IsPresent -and $uniqueCerts -and $uniqueCerts.Count -gt 0) {
-            Write-Host "Certificates: $($uniqueCerts.Count) installed to $CertStoreLocation store" -ForegroundColor White
+            Write-Host "`nCertificates: $($uniqueCerts.Count) installed to $CertStoreLocation store" -ForegroundColor Cyan
         }
+        
         Write-Host ""
     }
     catch {

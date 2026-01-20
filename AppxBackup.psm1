@@ -105,7 +105,6 @@ $publicFiles = @(
     'New-AppxBackupCertificate.ps1',
     'Test-AppxPackageIntegrity.ps1',
     'Get-AppxBackupInfo.ps1',
-    'Restore-AppxPackage.ps1',
     'Export-AppxDependencies.ps1',
     'Get-AppxToolPath.ps1',
     'Test-AppxBackupCompatibility.ps1'
@@ -166,7 +165,6 @@ $functionsToExport = @(
     'New-AppxBackupCertificate',
     'Test-AppxPackageIntegrity',
     'Get-AppxBackupInfo',
-    'Restore-AppxPackage',
     'Export-AppxDependencies',
     'Get-AppxToolPath',
     'Test-AppxBackupCompatibility'
@@ -178,8 +176,9 @@ Export-ModuleMember -Function $functionsToExport
 Set-Alias -Name 'Backup-AppX' -Value 'Backup-AppxPackage' -Scope Global
 Set-Alias -Name 'Export-AppX' -Value 'Backup-AppxPackage' -Scope Global
 Set-Alias -Name 'Save-AppxPackage' -Value 'Backup-AppxPackage' -Scope Global
+Set-Alias -Name 'Restore-AppxPackage' -Value 'Install-AppxBackup' -Scope Global
 
-Export-ModuleMember -Alias @('Backup-AppX', 'Export-AppX', 'Save-AppxPackage')
+Export-ModuleMember -Alias @('Backup-AppX', 'Export-AppX', 'Save-AppxPackage', 'Restore-AppxPackage')
 
 # Export configuration for advanced users
 Export-ModuleMember -Variable 'AppxBackupConfig'
@@ -199,6 +198,7 @@ $MyInvocation.MyCommand.ScriptBlock.Module.OnRemove = {
     Remove-Item Alias:Backup-AppX -ErrorAction SilentlyContinue
     Remove-Item Alias:Export-AppX -ErrorAction SilentlyContinue
     Remove-Item Alias:Save-AppxPackage -ErrorAction SilentlyContinue
+    Remove-Item Alias:Restore-AppxPackage -ErrorAction SilentlyContinue
     
     Write-Verbose "Module cleanup complete"
 }

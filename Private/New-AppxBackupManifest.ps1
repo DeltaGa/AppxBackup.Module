@@ -131,13 +131,13 @@ function New-AppxBackupManifest {
                 # Find corresponding package file
                 $depPackageFile = $PackageFiles | Where-Object {
                     $fileName = [System.IO.Path]::GetFileNameWithoutExtension($_.PackagePath)
-                    $fileName -like "*$($dep.Name)*$($dep.Version)*"
+                    $fileName -like "*$($dep.Name)*$($dep.InstalledVersion)*"
                 } | Select-Object -First 1
                 
                 if ($depPackageFile) {
                     $depMetadata = @{
                         Name                  = $dep.Name
-                        Version               = $dep.Version
+                        Version               = $dep.InstalledVersion
                         Architecture          = $dep.Architecture
                         MinVersion            = $dep.MinVersion
                         Publisher             = $dep.Publisher
@@ -150,18 +150,18 @@ function New-AppxBackupManifest {
                         CertificateThumbprint = $depPackageFile.CertificateThumbprint
                         InstallOrder          = $installOrder
                         IsOptional            = $dep.IsOptional
-                        DependencyType        = $dep.Type
+                        DependencyType        = $dep.DependencyType
                         IsInstalled           = $dep.IsInstalled
                     }
                     
                     $dependenciesMetadata += $depMetadata
                     
                     # Add to installation order (architecture-specific naming)
-                    $depIdentifier = "$($dep.Name)_$($dep.Version)_$($dep.Architecture)"
+                    $depIdentifier = "$($dep.Name)_$($dep.InstalledVersion)_$($dep.Architecture)"
                     $installationOrder += $depIdentifier
                     
                     $installOrder++
-                    Write-AppxLog -Message "Added dependency: $($dep.Name) v$($dep.Version)" -Level 'Debug'
+                    Write-AppxLog -Message "Added dependency: $($dep.Name) v$($dep.InstalledVersion)" -Level 'Debug'
                 }
                 else {
                     Write-AppxLog -Message "WARNING: Could not locate package file for dependency: $($dep.Name)" -Level 'Warning'
@@ -176,12 +176,12 @@ function New-AppxBackupManifest {
         Write-AppxLog -Message "Installation order: $($installationOrder -join ', ')" -Level 'Debug'
         
         # Get manifest defaults from configuration
-        $manifestVersion = Get-AppxDefault -Category 'manifestDefaults' -Key 'version' -ConfigName 'ZipPackagingConfiguration' -FallbackValue '1.0'
-        $createdByString = Get-AppxDefault -Category 'manifestDefaults' -Key 'createdByString' -ConfigName 'ZipPackagingConfiguration' -FallbackValue 'AppxBackup v2.0'
-        $defaultCompression = Get-AppxDefault -Category 'manifestDefaults' -Key 'defaultCompression' -ConfigName 'ZipPackagingConfiguration' -FallbackValue 'Optimal'
-        $requiresElevation = Get-AppxDefault -Category 'manifestDefaults' -Key 'requiresElevation' -ConfigName 'ZipPackagingConfiguration' -FallbackValue $true
-        $minOSVersion = Get-AppxDefault -Category 'systemRequirements' -Key 'minimumOSVersion' -ConfigName 'ZipPackagingConfiguration' -FallbackValue '10.0.17763'
-        $minPSVersion = Get-AppxDefault -Category 'systemRequirements' -Key 'minimumPowerShellVersion' -ConfigName 'ZipPackagingConfiguration' -FallbackValue '5.1'
+        $manifestVersion = Get-AppxDefault 'manifestDefaults.version' 'ZipPackagingConfiguration' '1.0'
+        $createdByString = Get-AppxDefault 'manifestDefaults.createdByString' 'ZipPackagingConfiguration' 'AppxBackup v2.0'
+        $defaultCompression = Get-AppxDefault 'manifestDefaults.defaultCompression' 'ZipPackagingConfiguration' 'Optimal'
+        $requiresElevation = Get-AppxDefault 'manifestDefaults.requiresElevation' 'ZipPackagingConfiguration' $true
+        $minOSVersion = Get-AppxDefault 'systemRequirements.minimumOSVersion' 'ZipPackagingConfiguration' '10.0.17763'
+        $minPSVersion = Get-AppxDefault 'systemRequirements.minimumPowerShellVersion' 'ZipPackagingConfiguration' '5.1'
         
         # Build complete manifest structure
         $manifest = @{

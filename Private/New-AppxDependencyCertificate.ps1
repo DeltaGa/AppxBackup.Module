@@ -15,17 +15,18 @@
     - No user interaction or confirmations
     - No certificate installation (done during Install-AppxBackup)
     - Optimized for speed in loops
-    - Extracts publisher from dependency manifest
+    - Publisher must be provided (obtained from Get-AppxPackage)
 
-.PARAMETER DependencyPackagePath
-    Full path to the dependency package (.appx/.msix) directory.
+.PARAMETER PackageName
+    Name of the dependency package, used for certificate filename generation.
+    Example: "Microsoft.UI.Xaml.2.8_8.2501.31001.0_x64"
 
 .PARAMETER OutputDirectory
     Directory where the certificate (.cer) file will be saved.
 
 .PARAMETER PublisherSubject
-    Publisher subject from the dependency manifest (CN=...).
-    If not provided, will be extracted from the package manifest.
+    Publisher subject from Get-AppxPackage (CN=...).
+    Required parameter - must be obtained from the installed package.
 
 .OUTPUTS
     [PSCustomObject]
@@ -35,16 +36,20 @@
     - Thumbprint: Certificate thumbprint
     - Subject: Certificate subject
     - ValidUntil: Certificate expiration date
+    - StoreLocation: Certificate store path
 
 .NOTES
     Author: DeltaGa
-    Version: 2.0.0
+    Version: 2.0.1
     
     This function is designed for high-volume dependency processing.
     It uses cached configuration values for performance.
 
 .EXAMPLE
-    $cert = New-AppxDependencyCertificate -DependencyPackagePath $depPath -OutputDirectory $outDir
+    $cert = New-AppxDependencyCertificate `
+        -PackageName "Microsoft.UI.Xaml.2.8_8.2501.31001.0_x64" `
+        -OutputDirectory $outDir `
+        -PublisherSubject $dep.Publisher
     if ($cert.Success) {
         Write-Host "Certificate: $($cert.Thumbprint)"
     }
@@ -56,40 +61,22 @@ function New-AppxDependencyCertificate {
     param(
         [Parameter(Mandatory)]
         [ValidateNotNullOrEmpty()]
-        [string]$DependencyPackagePath,
+        [string]$PackageName,
         
         [Parameter(Mandatory)]
         [ValidateNotNullOrEmpty()]
         [string]$OutputDirectory,
         
-        [Parameter()]
-        [string]$PublisherSubject = $null
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string]$PublisherSubject
     )
     
     Write-AppxLog -Message "=== New-AppxDependencyCertificate ===" -Level 'Debug'
-    Write-AppxLog -Message "Dependency: $DependencyPackagePath" -Level 'Debug'
+    Write-AppxLog -Message "Package: $PackageName" -Level 'Debug'
+    Write-AppxLog -Message "Publisher: $PublisherSubject" -Level 'Debug'
     
     try {
-        # If publisher not provided, extract from manifest
-        if ([string]::IsNullOrWhiteSpace($PublisherSubject)) {
-            Write-AppxLog -Message "Extracting publisher from dependency manifest..." -Level 'Debug'
-            
-            $manifestPath = [System.IO.Path]::Combine($DependencyPackagePath, 'AppxManifest.xml')
-            if (-not (Test-Path -LiteralPath $manifestPath)) {
-                throw "Manifest not found: $manifestPath"
-            }
-            
-            # Parse manifest to get publisher
-            $manifestData = Get-AppxManifestData -ManifestPath $manifestPath
-            $PublisherSubject = $manifestData.Publisher
-            
-            if ([string]::IsNullOrWhiteSpace($PublisherSubject)) {
-                throw "Could not extract publisher from manifest: $manifestPath"
-            }
-            
-            Write-AppxLog -Message "Extracted publisher: $PublisherSubject" -Level 'Debug'
-        }
-        
         # Ensure publisher subject starts with CN=
         if (-not $PublisherSubject.StartsWith('CN=')) {
             $PublisherSubject = "CN=$PublisherSubject"
@@ -97,18 +84,17 @@ function New-AppxDependencyCertificate {
         }
         
         # Generate certificate filename based on package name
-        $packageName = [System.IO.Path]::GetFileName($DependencyPackagePath)
-        $certFileName = "$packageName.cer"
+        $certFileName = "$PackageName.cer"
         $certOutputPath = [System.IO.Path]::Combine($OutputDirectory, $certFileName)
         
         Write-AppxLog -Message "Certificate output: $certOutputPath" -Level 'Debug'
         
         # Get certificate validity period from configuration
-        $validityYears = Get-AppxDefault -Category 'certificateDefaults' -Key 'defaultValidityYears' -FallbackValue 3
+        $validityYears = Get-AppxDefault 'certificateDefaults.defaultValidityYears' 'ModuleDefaults' 3
         $notAfter = (Get-Date).AddYears($validityYears)
         
         # Get certificate store location from configuration
-        $certStoreLocation = Get-AppxDefault -Category 'certificateSettings' -Key 'defaultStoreLocation' -ConfigName 'ZipPackagingConfiguration' -FallbackValue 'Cert:\CurrentUser\My'
+        $certStoreLocation = Get-AppxDefault 'certificateSettings.defaultStoreLocation' 'ZipPackagingConfiguration' 'Cert:\CurrentUser\My'
         
         Write-AppxLog -Message "Creating certificate: $PublisherSubject" -Level 'Info'
         Write-AppxLog -Message "Validity: $validityYears years (until $($notAfter.ToString('yyyy-MM-dd')))" -Level 'Debug'
