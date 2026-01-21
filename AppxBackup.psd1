@@ -160,30 +160,30 @@ Key Features:
 
             # ReleaseNotes of this module
             ReleaseNotes = @'
-            Version 2.0.1 (January 20, 2026)
-            ================================
+Version 2.0.1 (January 20, 2026)
+================================
 
-            RELEASE SUMMARY:
-            Complete rewrite of AppxBackup module from 2016 deprecated implementation to modern PowerShell 7+ native capabilities with comprehensive feature set.
+RELEASE SUMMARY:
+Complete rewrite of AppxBackup module from 2016 deprecated implementation to modern PowerShell 7+ native capabilities with comprehensive feature set.
 
-            MAJOR FEATURES:
-            - ZIP-based dependency packaging (.appxpack) with structured metadata and orchestrated installation
-            - Manifest parsing with multi-tier fallback strategies for namespace resolution
-            - External JSON configuration system (MimeTypes, ToolConfiguration, ModuleDefaults, etc.)
-            - Automatic certificate installation to Trusted Root store with privilege escalation fallback
-            - SDK tool validation with intelligent fallback and comprehensive error diagnostics
-            - Signature validation for backup archives using SignTool integration
-            - Dynamic tool path resolution returning actual paths instead of boolean values
-            - Process safety framework with tool-specific timeouts and output buffer management
+MAJOR FEATURES:
+- ZIP-based dependency packaging (.appxpack) with structured metadata and orchestrated installation
+- Manifest parsing with multi-tier fallback strategies for namespace resolution
+- External JSON configuration system (MimeTypes, ToolConfiguration, ModuleDefaults, etc.)
+- Automatic certificate installation to Trusted Root store with privilege escalation fallback
+- SDK tool validation with intelligent fallback and comprehensive error diagnostics
+- Signature validation for backup archives using SignTool integration
+- Dynamic tool path resolution returning actual paths instead of boolean values
+- Process safety framework with tool-specific timeouts and output buffer management
 
-            COMPATIBILITY:
-            - Windows 10 1809+ (all editions)
-            - Windows 11 (all versions)
-            - Windows Server 2019+
-            - PowerShell 5.1+ (7.4+ recommended)
-            - MSIX Packaging Tool compatible
-            - Legacy APPX fully supported
-            '@
+COMPATIBILITY:
+- Windows 10 1809+ (all editions)
+- Windows 11 (all versions)
+- Windows Server 2019+
+- PowerShell 5.1+ (7.4+ recommended)
+- MSIX Packaging Tool compatible
+- Legacy APPX fully supported
+'@
 
             # Prerelease string of this module
             Prerelease = ''
