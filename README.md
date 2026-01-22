@@ -1,6 +1,4 @@
-<img src="https://raw.githubusercontent.com/DeltaGa/AppxBackup.Module/main/Assets/icon.png" alt="AppxBackup Icon" width="100" height="100">
-
-# AppxBackup PowerShell Module v2.0.1
+<img src="https://raw.githubusercontent.com/DeltaGa/AppxBackup.Module/main/Assets/icon.png" alt="AppxBackup Icon" width="100" height="100"> # AppxBackup PowerShell Module v2.0.1
 
 ## Windows Application Package Backup & Restoration Toolkit
 
