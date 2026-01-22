@@ -332,9 +332,9 @@ Install-AppxBackup -PackagePath "package.appx" -Force
 
 ## Limitations
 
-### Dependency Repackaging Behavior
+### Restoration Behavior
 
-The `-IncludeDependencies` parameter repackages applications with their framework dependencies into a single `.appxpack` archive. Some applications cannot be successfully repackaged and restored. If a repackaged application fails to install, the application cannot be used from the backup. Reinstall from the Microsoft Store.
+Some applications cannot be successfully restored after being repackaged. If a repackaged application fails to install, the application cannot be used from the backup. Reinstall from the Microsoft Store.
 
 ---
 
