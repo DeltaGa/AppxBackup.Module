@@ -3,7 +3,7 @@
 ## Windows Application Package Backup & Restoration Toolkit
 
 **Version:** 2.0.1  
-**Release Date:** January 15, 2026  
+**Release Date:** January 20, 2026  
 **PowerShell:** 5.1+ (7.5+ Recommended)
 
 ---
