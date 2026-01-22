@@ -29,15 +29,17 @@ function Resolve-AppxDependencies {
         [switch]$Recursive,
 
         [Parameter()]
-        [int]$MaxDepth = 5
+        [int]$MaxDepth = 5,
+        
+        [Parameter(DontShow)]
+        [hashtable]$ProcessedPackages = @{},
+        
+        [Parameter(DontShow)]
+        [int]$CurrentDepth = 0
     )
 
     begin {
-        Write-AppxLog -Message "Resolving dependencies for: $PackagePath" -Level 'Verbose'
-        
-        $resolvedDependencies = @()
-        $processedPackages = @{}
-        $currentDepth = 0
+        Write-AppxLog -Message "Resolving dependencies for: $PackagePath (depth: $CurrentDepth)" -Level 'Verbose'
     }
 
     process {
@@ -144,21 +146,20 @@ function Resolve-AppxDependencies {
             }
 
             # Recursive resolution
-            if ($Recursive.IsPresent -and $currentDepth -lt $MaxDepth) {
+            if ($Recursive.IsPresent -and $CurrentDepth -lt $MaxDepth) {
                 foreach ($dep in @($dependencies)) {
-                    if ($dep.ResolvedPath -and -not $processedPackages.ContainsKey($dep.Name)) {
-                        $processedPackages[$dep.Name] = $true
+                    if ($dep.ResolvedPath -and -not $ProcessedPackages.ContainsKey($dep.Name)) {
+                        $ProcessedPackages[$dep.Name] = $true
                         
                         Write-AppxLog -Message "Recursively resolving: $($dep.Name)" -Level 'Debug'
                         
                         try {
-                            $currentDepth++
                             $subDeps = Resolve-AppxDependencies -PackagePath $dep.ResolvedPath `
                                 -IncludeOptional:$IncludeOptional `
                                 -Recursive:$Recursive `
-                                -MaxDepth $MaxDepth
-                            
-                            $currentDepth--
+                                -MaxDepth $MaxDepth `
+                                -ProcessedPackages $ProcessedPackages `
+                                -CurrentDepth ($CurrentDepth + 1)
                             
                             if ($subDeps.Dependencies) {
                                 $dependencies += $subDeps.Dependencies
