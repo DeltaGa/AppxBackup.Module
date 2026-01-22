@@ -9,7 +9,7 @@
     CompatiblePSEditions = @('Desktop', 'Core')
 
     # ID used to uniquely identify this module
-    GUID = 'a3f2c8d1-9b4e-4a7c-8f6d-2e1b9c4a7f3e'
+    GUID = 'c14ibtjk-zwqs-kaj0-fy19-3c6gymzzrhlc'
 
     # Author of this module
     Author = 'DeltaGa'
@@ -125,10 +125,14 @@ Key Features:
         'Private\ConvertTo-SecureFilePath.ps1',
         'Private\Get-AppxConfiguration.ps1',
         'Private\Get-AppxDefault.ps1',
+        'Private\New-AppxBackupZipArchive.ps1',
+        'Private\New-AppxBackupManifest.ps1',
+        'Private\New-AppxDependencyCertificate.ps1',
         'Config\ToolConfiguration.json',
         'Config\WindowsReservedNames.json',
         'Config\PackageConfiguration.json',
-        'Config\ModuleDefaults.json'
+        'Config\ModuleDefaults.json',
+        'Config\ZipPackagingConfiguration.json'
     )
 
     # Private data to pass to the module specified in RootModule/ModuleToProcess
@@ -145,17 +149,23 @@ Key Features:
                 'Certificate',
                 'UWP',
                 'Store',
-                'Application'
+                'Application',
+                'Restore',
+                'Migration',
+                'WindowsPackage',
+                'AppxPackage',
+                'MsixPackage',
+                'Dependency'
             )
 
             # A URL to the license for this module.
-            LicenseUri = ''
+            LicenseUri = 'https://github.com/DeltaGa/AppxBackup.Module/blob/main/LICENSE'
 
             # A URL to the main website for this project.
-            ProjectUri = ''
+            ProjectUri = 'https://github.com/DeltaGa/AppxBackup.Module'
 
             # A URL to an icon representing this module.
-            IconUri = ''
+            IconUri = 'https://raw.githubusercontent.com/DeltaGa/AppxBackup.Module/main/Assets/icon.png'
 
             # ReleaseNotes of this module
             ReleaseNotes = @'

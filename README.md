@@ -1,3 +1,5 @@
+![AppxBackup Icon](https://raw.githubusercontent.com/DeltaGa/AppxBackup.Module/main/Assets/icon.png)
+
 # AppxBackup PowerShell Module v2.0.1
 
 ## Windows Application Package Backup & Restoration Toolkit
