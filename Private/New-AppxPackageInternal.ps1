@@ -405,101 +405,11 @@ function New-AppxPackageInternal {
                             }
                             
                             # Verify critical files exist after copy
-                            $criticalFiles = @('AppxManifest.xml', '[Content_Types].xml')
+                            $criticalFiles = @('AppxManifest.xml')
                             foreach ($critical in @($criticalFiles)) {
                                 $criticalPath = [System.IO.Path]::Combine($tempSourcePath, $critical)
                                 if (-not (Test-Path -LiteralPath $criticalPath)) {
-                                    
-                                    # Special handling for [Content_Types].xml - generate if missing
-                                    if ($critical -eq '[Content_Types].xml') {
-                                        Write-AppxLog -Message "WARNING: [Content_Types].xml missing from source, generating comprehensive version" -Level 'Warning'
-                                        
-                                        # Scan directory for all file extensions to include
-                                        $extensions = @{}
-                                        try {
-                                            Get-ChildItem -LiteralPath $tempSourcePath -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object {
-                                                $ext = $_.Extension.TrimStart('.')
-                                                if ($ext -and -not $extensions.ContainsKey($ext)) {
-                                                    $extensions[$ext] = $true
-                                                }
-                                            }
-                                            Write-AppxLog -Message "Found $($extensions.Count) unique file extensions in package" -Level 'Debug'
-                                        }
-                                        catch {
-                                            Write-AppxLog -Message "Could not scan extensions: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Debug'
-                                        }
-                                        
-                                        # Build comprehensive Content_Types.xml with MIME types from external database
-                                        $sb = [System.Text.StringBuilder]::new()
-                                        [void]$sb.AppendLine('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>')
-                                        [void]$sb.AppendLine('<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">')
-                                        
-                                        # Load MIME type database from external configuration
-                                        try {
-                                            $mimeConfig = Get-AppxConfiguration -ConfigName 'MimeTypes'
-                                            $mimeTypes = @{}
-                                            
-                                            # Convert PSCustomObject properties to hashtable for easier lookup
-                                            foreach ($property in @($mimeConfig.mimeTypes.PSObject.Properties)) {
-                                                $mimeTypes[$property.Name] = $property.Value
-                                            }
-                                            
-                                            $defaultContentType = $mimeConfig.defaultContentType
-                                            
-                                            Write-AppxLog -Message "Loaded $($mimeTypes.Count) MIME types from configuration" -Level 'Debug'
-                                        }
-                                        catch {
-                                            # Fallback to minimal MIME types if configuration fails
-                                            Write-AppxLog -Message "Failed to load MIME configuration, using fallback: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Warning'
-                                            
-                                            $mimeTypes = @{
-                                                'xml'   = 'application/xml'
-                                                'dll'   = 'application/x-msdownload'
-                                                'exe'   = 'application/x-msdownload'
-                                                'png'   = 'image/png'
-                                                'jpg'   = 'image/jpeg'
-                                                'txt'   = 'text/plain'
-                                            }
-                                            $defaultContentType = 'application/octet-stream'
-                                        }
-                                        
-                                        # Add default entries for all found extensions
-                                        foreach ($ext in @($extensions.Keys)) {
-                                            $contentType = if ($mimeTypes.ContainsKey($ext)) {
-                                                $mimeTypes[$ext]
-                                            } else {
-                                                $defaultContentType
-                                            }
-                                            [void]$sb.AppendLine("  <Default Extension=`"$ext`" ContentType=`"$contentType`"/>")
-                                        }
-                                        
-                                        # Add standard entries that might not exist yet but are needed
-                                        foreach ($kvp in $mimeTypes.GetEnumerator()) {
-                                            if (-not $extensions.ContainsKey($kvp.Key)) {
-                                                [void]$sb.AppendLine("  <Default Extension=`"$($kvp.Key)`" ContentType=`"$($kvp.Value)`"/>")
-                                            }
-                                        }
-                                        
-                                        # Add APPX-specific overrides
-                                        [void]$sb.AppendLine('  <Override PartName="/AppxManifest.xml" ContentType="application/vnd.ms-appx.manifest+xml"/>')
-                                        [void]$sb.AppendLine('  <Override PartName="/AppxBlockMap.xml" ContentType="application/vnd.ms-appx.blockmap+xml"/>')
-                                        [void]$sb.AppendLine('  <Override PartName="/AppxSignature.p7x" ContentType="application/vnd.ms-appx.signature"/>')
-                                        [void]$sb.AppendLine('</Types>')
-                                        
-                                        $contentTypesXml = $sb.ToString()
-                                        
-                                        try {
-                                            [System.IO.File]::WriteAllText($criticalPath, $contentTypesXml, [System.Text.UTF8Encoding]::new($false))
-                                            Write-AppxLog -Message "Generated [Content_Types].xml with $($extensions.Count + $mimeTypes.Count) entries" -Level 'Debug'
-                                        }
-                                        catch {
-                                            Write-AppxLog -Message "Failed to generate [Content_Types].xml: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Error'
-                throw "Failed to generate [Content_Types].xml: $_"
-                                        }
-                                    }
-                                    else {
-                                        throw "Critical file missing after copy: $critical (MakeAppx requires this file)"
-                                    }
+                                    throw "Critical file missing after copy: $critical (MakeAppx requires this file)"
                                 }
                             }
                         }

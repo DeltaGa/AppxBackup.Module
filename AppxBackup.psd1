@@ -125,7 +125,6 @@ Key Features:
         'Private\ConvertTo-SecureFilePath.ps1',
         'Private\Get-AppxConfiguration.ps1',
         'Private\Get-AppxDefault.ps1',
-        'Config\MimeTypes.json',
         'Config\ToolConfiguration.json',
         'Config\WindowsReservedNames.json',
         'Config\PackageConfiguration.json',
@@ -169,7 +168,7 @@ Complete rewrite of AppxBackup module from 2016 deprecated implementation to mod
 MAJOR FEATURES:
 - ZIP-based dependency packaging (.appxpack) with structured metadata and orchestrated installation
 - Manifest parsing with multi-tier fallback strategies for namespace resolution
-- External JSON configuration system (MimeTypes, ToolConfiguration, ModuleDefaults, etc.)
+- External JSON configuration system (ToolConfiguration, ModuleDefaults, etc.)
 - Automatic certificate installation to Trusted Root store with privilege escalation fallback
 - SDK tool validation with intelligent fallback and comprehensive error diagnostics
 - Signature validation for backup archives using SignTool integration

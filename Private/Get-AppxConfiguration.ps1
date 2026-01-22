@@ -14,9 +14,9 @@
     - Support for all module configuration files
 
 .PARAMETER ConfigName
-    Name of the configuration file to load (without .json extension).
-    Valid values: 'MimeTypes', 'ToolConfiguration', 'WindowsReservedNames', 
-                  'PackageConfiguration', 'ModuleDefaults', 'ZipPackagingConfiguration'
+     Name of the configuration file to load (without .json extension).
+     Valid values: 'ToolConfiguration', 'WindowsReservedNames', 
+                   'PackageConfiguration', 'ModuleDefaults', 'ZipPackagingConfiguration'
 
 .PARAMETER Reload
     If specified, forces reload from disk even if cached.
@@ -37,8 +37,8 @@ function Get-AppxConfiguration {
     [OutputType([PSCustomObject])]
     param(
         [Parameter(Mandatory, Position = 0)]
-        [ValidateSet('MimeTypes', 'ToolConfiguration', 'WindowsReservedNames', 'PackageConfiguration', 'ModuleDefaults', 'ZipPackagingConfiguration')]
-        [string]$ConfigName,
+         [ValidateSet('ToolConfiguration', 'WindowsReservedNames', 'PackageConfiguration', 'ModuleDefaults', 'ZipPackagingConfiguration')]
+         [string]$ConfigName,
 
         [Parameter()]
         [switch]$Reload
@@ -90,15 +90,6 @@ function Get-AppxConfiguration {
 
             # Configuration-specific validation
             switch ($ConfigName) {
-                'MimeTypes' {
-                    if (-not $config.mimeTypes) {
-                        throw "MimeTypes configuration missing 'mimeTypes' property"
-                    }
-                    if (-not $config.defaultContentType) {
-                        throw "MimeTypes configuration missing 'defaultContentType' property"
-                    }
-                }
-                
                 'ToolConfiguration' {
                     if (-not $config.toolConfigurations) {
                         throw "ToolConfiguration missing 'toolConfigurations' property"
@@ -119,7 +110,7 @@ function Get-AppxConfiguration {
             }
 
             # Cache the configuration
-            $script:ConfigCache[$ConfigName] = $config
+             $script:ConfigCache[$ConfigName] = $config
             
             return $config
         }

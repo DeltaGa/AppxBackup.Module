@@ -348,7 +348,6 @@ AppxBackup.Module/
 │
 ├── Config/                   # Externalized configuration
 │   ├── ModuleDefaults.json           # Core module constants
-│   ├── MimeTypes.json                # MIME type mappings
 │   ├── ToolConfiguration.json        # Tool-specific settings
 │   ├── WindowsReservedNames.json     # Reserved filenames
 │   ├── PackageConfiguration.json     # Package-related constants
@@ -388,7 +387,6 @@ AppxBackup.Module/
 All hardcoded values are externalized to JSON configuration files in the `Config/` directory:
 
 - **ModuleDefaults.json** - Path limits, timeouts, buffer sizes, disk space thresholds, etc.
-- **MimeTypes.json** - Comprehensive MIME type database for Content_Types.xml generation
 - **ToolConfiguration.json** - Tool-specific timeouts, async wait times, exit code interpretation
 - **WindowsReservedNames.json** - Windows reserved filenames for validation
 - **PackageConfiguration.json** - Package extensions, signature files, compression levels, namespaces
@@ -446,9 +444,7 @@ When reporting issues, include:
 - Improved progress reporting with separate extraction, validation, and installation stages
 
 #### Future Changes (Planned)
-- Extend Get-AppxBackupInfo to analyze .appxpack files with full metadata extraction
-- Extend Test-AppxPackageIntegrity to validate .appxpack archive structure and signatures
-- Extend Test-AppxBackupCompatibility to assess system compatibility for .appxpack installation
+  *Nothing explicitly planned for future versions.*
 
 ---
 
