@@ -47,7 +47,7 @@ AppxBackup is a **complete 2026 rewrite** of the 2016 original APPX backup scrip
 
 - **PowerShell:** 5.1+
 - **OS:** Windows 10 1809 / Windows Server 2019
-- **Windows SDK:** 10.0.26100.0+ (includes MakeAppx, SignTool)
+- **Windows SDK:** 10.0.19041.0+ (includes MakeAppx, SignTool)
 - **Disk Space:** 100 MB temporary storage
 - **Memory:** 512 MB available RAM
 
@@ -392,6 +392,7 @@ All hardcoded values are externalized to JSON configuration files in the `Config
 - **ToolConfiguration.json** - Tool-specific timeouts, async wait times, exit code interpretation
 - **WindowsReservedNames.json** - Windows reserved filenames for validation
 - **PackageConfiguration.json** - Package extensions, signature files, compression levels, namespaces
+- **ZipPackagingConfiguration.json** - ZIP archive structure, compression settings, manifest defaults, system requirements
 
 ---
 
