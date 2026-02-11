@@ -116,6 +116,7 @@ function Backup-AppxPackage {
         [switch]$DependencyReportOnly,
 
         [Parameter(ParameterSetName = 'Bundle')]
+        [Obsolete('CreateBundle is deprecated. Use -IncludeDependencies for ZIP-based dependency packaging.')]
         [switch]$CreateBundle,
 
         [Parameter()]
@@ -188,6 +189,18 @@ function Backup-AppxPackage {
             }
             
             if ($sdkMissing.Count -gt 0) {
+                # Load SDK download URL from configuration
+                try {
+                    $toolConfig = Get-AppxConfiguration -ConfigName 'ToolConfiguration'
+                    $sdkUrl = $toolConfig.sdkDownloadUrl
+                    if (-not $sdkUrl) {
+                        $sdkUrl = 'https://developer.microsoft.com/en-us/windows/downloads/windows-sdk/'
+                    }
+                }
+                catch {
+                    $sdkUrl = 'https://developer.microsoft.com/en-us/windows/downloads/windows-sdk/'
+                }
+                
                 $errorMsg = @"
 CRITICAL ERROR: Windows SDK tools not found
 
@@ -199,7 +212,7 @@ Without these tools, the backup process will fail or produce corrupted packages.
 
 SOLUTION:
 1. Download and install Windows SDK from:
-   https://developer.microsoft.com/en-us/windows/downloads/windows-sdk/
+   $sdkUrl
 
 2. Ensure the SDK bin directory is in your PATH, or install to default location:
    C:\Program Files (x86)\Windows Kits\10\bin\<version>\<arch>\

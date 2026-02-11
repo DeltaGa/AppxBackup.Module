@@ -83,6 +83,21 @@ function Export-AppxDependencies {
     begin {
         Write-AppxLog -Message "Exporting dependency information" -Level 'Verbose'
         
+        # Helper function for HTML encoding to prevent XSS
+        function ConvertTo-HtmlEncodedString {
+            param([string]$Text)
+            if ([string]::IsNullOrEmpty($Text)) { return '' }
+            return [System.Web.HttpUtility]::HtmlEncode($Text)
+        }
+        
+        # Load System.Web assembly for HTML encoding
+        try {
+            Add-Type -AssemblyName System.Web -ErrorAction Stop
+        }
+        catch {
+            Write-AppxLog -Message "System.Web assembly not available, HTML encoding will use basic fallback" -Level 'Warning'
+        }
+        
         # Auto-detect format from extension if not specified
         if ($null -eq $Format) {
             $extension = [System.IO.Path]::GetExtension($OutputPath).TrimStart('.')
@@ -317,8 +332,8 @@ function Export-AppxDependencies {
         <h1>[CHAR_128230] Dependency Report</h1>
         
         <div class="metadata">
-            <p><strong>Package:</strong> $($depResult.PackageName) v$($depResult.PackageVersion)</p>
-            <p><strong>Source:</strong> $PackagePath</p>
+            <p><strong>Package:</strong> $(ConvertTo-HtmlEncodedString -Text "$($depResult.PackageName) v$($depResult.PackageVersion)")</p>
+            <p><strong>Source:</strong> $(ConvertTo-HtmlEncodedString -Text $PackagePath)</p>
             <p><strong>Export Date:</strong> $([DateTime]::Now.ToString('yyyy-MM-dd HH:mm:ss'))</p>
         </div>
         
@@ -361,14 +376,21 @@ $(
         $typeClass = if ($_.DependencyType -eq 'Framework') { 'badge-framework' } else { 'badge-package' }
         $optionalBadge = if ($_.IsOptional) { '<span class="badge badge-optional">Optional</span>' } else { '' }
         
+        # HTML-encode all user-controlled values
+        $encodedName = ConvertTo-HtmlEncodedString -Text $_.Name
+        $encodedType = ConvertTo-HtmlEncodedString -Text $_.DependencyType
+        $encodedMinVer = ConvertTo-HtmlEncodedString -Text $_.MinVersion
+        $encodedInstalledVer = ConvertTo-HtmlEncodedString -Text $_.InstalledVersion
+        $encodedArch = ConvertTo-HtmlEncodedString -Text $_.Architecture
+        
         @"
                 <tr>
-                    <td><strong>$($_.Name)</strong></td>
-                    <td><span class="badge $typeClass">$($_.DependencyType)</span> $optionalBadge</td>
-                    <td>$($_.MinVersion)</td>
+                    <td><strong>$encodedName</strong></td>
+                    <td><span class="badge $typeClass">$encodedType</span> $optionalBadge</td>
+                    <td>$encodedMinVer</td>
                     <td class="$statusClass">$statusText</td>
-                    <td>$($_.InstalledVersion)</td>
-                    <td>$($_.Architecture)</td>
+                    <td>$encodedInstalledVer</td>
+                    <td>$encodedArch</td>
                 </tr>
 "@
     }

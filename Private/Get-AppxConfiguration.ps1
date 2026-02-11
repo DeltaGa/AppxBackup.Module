@@ -107,6 +107,33 @@ function Get-AppxConfiguration {
                         throw "WindowsReservedNames has empty 'reservedNames' array"
                     }
                 }
+                
+                'PackageConfiguration' {
+                    if (-not $config.packageExtensions) {
+                        throw "PackageConfiguration missing 'packageExtensions' property"
+                    }
+                    if (-not $config.manifestFiles) {
+                        throw "PackageConfiguration missing 'manifestFiles' property"
+                    }
+                }
+                
+                'ModuleDefaults' {
+                    if (-not $config.pathDefaults) {
+                        throw "ModuleDefaults missing 'pathDefaults' property"
+                    }
+                    if (-not $config.timeoutDefaults) {
+                        throw "ModuleDefaults missing 'timeoutDefaults' property"
+                    }
+                }
+                
+                'ZipPackagingConfiguration' {
+                    if (-not $config.archiveStructure) {
+                        throw "ZipPackagingConfiguration missing 'archiveStructure' property"
+                    }
+                    if (-not $config.manifestDefaults) {
+                        throw "ZipPackagingConfiguration missing 'manifestDefaults' property"
+                    }
+                }
             }
 
             # Cache the configuration

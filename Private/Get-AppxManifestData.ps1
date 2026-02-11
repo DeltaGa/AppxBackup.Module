@@ -50,6 +50,7 @@ function Get-AppxManifestData {
                 [System.Xml.XmlNode]$Node,
                 
                 [Parameter(Mandatory)]
+                [ValidateNotNullOrEmpty()]
                 [string]$PropertyName,
                 
                 [Parameter()]
@@ -75,6 +76,7 @@ function Get-AppxManifestData {
                 [System.Xml.XmlNode]$Node,
                 
                 [Parameter(Mandatory)]
+                [ValidateNotNullOrEmpty()]
                 [string]$AttributeName,
                 
                 [Parameter()]

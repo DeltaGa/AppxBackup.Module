@@ -217,6 +217,7 @@ function Test-AppxpackArchiveIntegrity {
     [OutputType([PSCustomObject])]
     param(
         [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
         [string]$PackagePath,
         
         [Parameter()]

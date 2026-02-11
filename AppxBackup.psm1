@@ -37,21 +37,23 @@ $script:ToolCache = @{}
 $script:PackageCache = @{}
 $script:ConfigCache = @{}
 
-# Module configuration - will be populated from ModuleDefaults.json after functions load
+# Module configuration - Emergency fallback values (matches ModuleDefaults.json)
+# These values are only used if JSON configuration loading fails during module initialization
+# All values below match their counterparts in Config/ModuleDefaults.json for consistency
 $script:AppxBackupConfig = @{
-    MaxLogSizeMB = 10  # Temporary default, will be overridden
-    DefaultCertificateValidityYears = 3
-    DefaultHashAlgorithm = 'SHA256'
-    DefaultKeyLength = 4096
-    EnableProgressIndicators = $true
-    EnableVerboseLogging = $false
-    MaxParallelOperations = 4
-    PackageValidationLevel = 'Standard'
-    CertificateStorageLocation = 'Cert:\CurrentUser\My'
-    TempDirectoryPath = $null
-    RetryAttempts = 3
-    RetryDelaySeconds = 2
-    TimeoutSeconds = 3600
+    MaxLogSizeMB = 10  # Emergency fallback - matches ModuleDefaults.json:logConfiguration.maxLogSizeMB
+    DefaultCertificateValidityYears = 3  # Emergency fallback - matches ModuleDefaults.json:certificateDefaults.defaultValidityYears
+    DefaultHashAlgorithm = 'SHA256'  # Emergency fallback - matches ModuleDefaults.json:certificateDefaults.hashAlgorithm
+    DefaultKeyLength = 4096  # Emergency fallback - matches ModuleDefaults.json:certificateDefaults.keyLength
+    EnableProgressIndicators = $true  # Emergency fallback - matches ModuleDefaults.json:displayDefaults.enableProgressIndicators
+    EnableVerboseLogging = $false  # Emergency fallback - matches ModuleDefaults.json:displayDefaults.enableVerboseLogging
+    MaxParallelOperations = 4  # Emergency fallback - matches ModuleDefaults.json:performanceDefaults.maxParallelOperations
+    PackageValidationLevel = 'Standard'  # Emergency fallback - matches ModuleDefaults.json:validationDefaults.level
+    CertificateStorageLocation = 'Cert:\CurrentUser\My'  # Emergency fallback - matches ModuleDefaults.json:certificateDefaults.storageLocation
+    TempDirectoryPath = $null  # Emergency fallback - computed from ModuleDefaults.json:pathDefaults.tempDirectoryBase
+    RetryAttempts = 3  # Emergency fallback - matches ModuleDefaults.json:sleepDelays.maxCleanupAttempts
+    RetryDelaySeconds = 2  # Emergency fallback - matches ModuleDefaults.json:sleepDelays.verificationDelaySeconds
+    TimeoutSeconds = 3600  # Emergency fallback - matches ModuleDefaults.json:timeoutDefaults.processExecutionDefaultSeconds
 }
 
 #endregion
@@ -180,8 +182,8 @@ Set-Alias -Name 'Restore-AppxPackage' -Value 'Install-AppxBackup' -Scope Global
 
 Export-ModuleMember -Alias @('Backup-AppX', 'Export-AppX', 'Save-AppxPackage', 'Restore-AppxPackage')
 
-# Export configuration for advanced users
-Export-ModuleMember -Variable 'AppxBackupConfig'
+# Note: AppxBackupConfig is intentionally NOT exported to prevent runtime modifications
+# Advanced users can access it via $script:AppxBackupConfig if needed, but direct modification is discouraged
 
 #endregion
 

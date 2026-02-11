@@ -283,6 +283,7 @@ function Get-AppxpackArchiveInfo {
     [OutputType([PSCustomObject])]
     param(
         [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
         [string]$PackagePath,
         
         [Parameter(Mandatory)]

@@ -97,11 +97,30 @@ function Test-AppxBackupCompatibility {
             default { "Windows $($osVersion.Major).$($osVersion.Minor)" }
         }
         
-        # System architecture
-        $systemArch = if ([Environment]::Is64BitOperatingSystem) {
-            if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'ARM64' } else { 'x64' }
-        } else {
-            'x86'
+        # System architecture - wrapped for testability and consistency
+        $systemArch = Get-SystemArchitecture
+    }
+    
+    # Helper function for architecture detection
+    function Get-SystemArchitecture {
+        <#
+        .SYNOPSIS
+            Detects the system processor architecture.
+        .DESCRIPTION
+            Determines whether the system is x86, x64, or ARM64.
+            Wrapped in a helper function for testability and to avoid direct environment variable access.
+        #>
+        if ([Environment]::Is64BitOperatingSystem) {
+            # Check for ARM64 vs x64
+            if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 
+                return 'ARM64' 
+            } 
+            else { 
+                return 'x64' 
+            }
+        } 
+        else {
+            return 'x86'
         }
     }
 
@@ -147,9 +166,9 @@ function Test-AppxBackupCompatibility {
             # Get package info
             $packageInfo = Get-AppxBackupInfo -PackagePath $packagePath -IncludeSignatureInfo
             
-            # Initialize result
-            $issues = @()
-            $warnings = @()
+            # Initialize result with ArrayList for performance
+            $issues = [System.Collections.ArrayList]::new()
+            $warnings = [System.Collections.ArrayList]::new()
             $isCompatible = $true
 
             Write-Host "`n=== System Information ===" -ForegroundColor Cyan
@@ -179,7 +198,7 @@ function Test-AppxBackupCompatibility {
             }
             else {
                 Write-Host "  [X] Architecture: Incompatible ($($packageInfo.PackageArchitecture) cannot run on $systemArch)" -ForegroundColor Red
-                $issues += "Architecture mismatch: Package requires $($packageInfo.PackageArchitecture), system is $systemArch"
+                [void]$issues.Add("Architecture mismatch: Package requires $($packageInfo.PackageArchitecture), system is $systemArch")
                 $isCompatible = $false
             }
 
@@ -200,7 +219,7 @@ function Test-AppxBackupCompatibility {
                         }
                         else {
                             Write-Host "  [X] OS Version: Incompatible (Build $osBuild < $minVer required)" -ForegroundColor Red
-                            $issues += "OS build too old: Package requires build $minVer, system is $osBuild"
+                            [void]$issues.Add("OS build too old: Package requires build $minVer, system is $osBuild")
                             $isCompatible = $false
                             $deviceFamilyCompatible = $false
                         }
@@ -212,13 +231,13 @@ function Test-AppxBackupCompatibility {
                         
                         if ($osBuild -gt $maxVer) {
                             Write-Host "  [WARNING]  OS Version: Newer than tested (Build $osBuild > $maxVer tested)" -ForegroundColor Yellow
-                            $warnings += "Package not tested on OS build $osBuild (tested up to $maxVer)"
+                            [void]$warnings.Add("Package not tested on OS build $osBuild (tested up to $maxVer)")
                         }
                     }
                 }
                 else {
                     Write-Host "  [WARNING]  Device Family: Not explicitly supported" -ForegroundColor Yellow
-                    $warnings += "Package does not explicitly support $currentFamily device family"
+                    [void]$warnings.Add("Package does not explicitly support $currentFamily device family")
                 }
             }
             else {
@@ -265,7 +284,7 @@ function Test-AppxBackupCompatibility {
                     }
                     else {
                         Write-Host "  [WARNING]  $($depResult.MissingCount) dependencies missing" -ForegroundColor Yellow
-                        $warnings += "$($depResult.MissingCount) required dependencies not installed"
+                        [void]$warnings.Add("$($depResult.MissingCount) required dependencies not installed")
                         
                         if ($Detailed.IsPresent) {
                             $missingDeps = $depResult.Dependencies | Where-Object { -not $_.IsInstalled -and -not $_.IsOptional }
@@ -294,11 +313,11 @@ function Test-AppxBackupCompatibility {
                     }
                     'NotSigned' {
                         Write-Host "  [WARNING]  Signature: Not signed (requires developer mode)" -ForegroundColor Yellow
-                        $warnings += "Package is not signed. Installation requires developer mode or trusted certificate."
+                        [void]$warnings.Add("Package is not signed. Installation requires developer mode or trusted certificate.")
                     }
                     default {
                         Write-Host "  [WARNING]  Signature: $sigStatus" -ForegroundColor Yellow
-                        $warnings += "Package signature status: $sigStatus"
+                        [void]$warnings.Add("Package signature status: $sigStatus")
                     }
                 }
             }
@@ -382,6 +401,7 @@ function Test-AppxpackArchiveCompatibility {
     [OutputType([PSCustomObject])]
     param(
         [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
         [string]$PackagePath,
         
         [Parameter()]
@@ -391,6 +411,7 @@ function Test-AppxpackArchiveCompatibility {
         [switch]$Detailed,
         
         [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
         [string]$SystemArch,
         
         [Parameter(Mandatory)]
@@ -400,13 +421,14 @@ function Test-AppxpackArchiveCompatibility {
         [int]$OSBuild,
         
         [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
         [string]$OSName
     )
     
     Write-AppxLog -Message "Testing .appxpack archive compatibility: $PackagePath" -Level 'Info'
     
-    $issues = @()
-    $warnings = @()
+    $issues = [System.Collections.ArrayList]::new()
+    $warnings = [System.Collections.ArrayList]::new()
     $isCompatible = $true
     
     # Create temp extraction directory
@@ -473,7 +495,7 @@ function Test-AppxpackArchiveCompatibility {
             }
             else {
                 Write-Host "  [FAIL] Main Package Architecture: Incompatible ($($mainPkg.Architecture) cannot run on $SystemArch)" -ForegroundColor Red
-                $issues += "Main package architecture mismatch: Requires $($mainPkg.Architecture), system is $SystemArch"
+                [void]$issues.Add("Main package architecture mismatch: Requires $($mainPkg.Architecture), system is $SystemArch")
                 $isCompatible = $false
             }
             
@@ -488,7 +510,7 @@ function Test-AppxpackArchiveCompatibility {
                 }
                 else {
                     Write-Host "  [FAIL] PowerShell Version: Incompatible (v$currentPSVersion < v$minPSVersion required)" -ForegroundColor Red
-                    $issues += "PowerShell version too old: Archive requires v$minPSVersion, system has v$currentPSVersion"
+                    [void]$issues.Add("PowerShell version too old: Archive requires v$minPSVersion, system has v$currentPSVersion")
                     $isCompatible = $false
                     $psVersionCompatible = $false
                 }
@@ -510,7 +532,7 @@ function Test-AppxpackArchiveCompatibility {
                     }
                     else {
                         Write-Host "  [FAIL] OS Version: Incompatible (Build $OSBuild < $minOSBuild required)" -ForegroundColor Red
-                        $issues += "OS build too old: Archive requires build $minOSBuild, system is $OSBuild"
+                        [void]$issues.Add("OS build too old: Archive requires build $minOSBuild, system is $OSBuild")
                         $isCompatible = $false
                         $osCompatible = $false
                     }
@@ -529,7 +551,7 @@ function Test-AppxpackArchiveCompatibility {
                 }
                 else {
                     Write-Host "  [WARN] Elevation: Installation requires Administrator privileges" -ForegroundColor Yellow
-                    $warnings += "Archive installation requires Administrator privileges for certificate installation"
+                    [void]$warnings.Add("Archive installation requires Administrator privileges for certificate installation")
                 }
             }
             else {
@@ -537,7 +559,7 @@ function Test-AppxpackArchiveCompatibility {
             }
             
             # Check 5: Dependency Compatibility
-            $dependencyCompatibilityResults = @()
+            $dependencyCompatibilityResults = [System.Collections.ArrayList]::new()
             $allDependenciesCompatible = $true
             
             if ($CheckDependencies.IsPresent -and $manifestContent.Dependencies.Count -gt 0) {
@@ -545,7 +567,7 @@ function Test-AppxpackArchiveCompatibility {
                 
                 foreach ($dep in $manifestContent.Dependencies) {
                     $depCompatible = $true
-                    $depIssues = @()
+                    $depIssues = [System.Collections.ArrayList]::new()
                     
                     # Check dependency architecture
                     $depArchCompatible = switch ($dep.Architecture) {
@@ -559,7 +581,7 @@ function Test-AppxpackArchiveCompatibility {
                     
                     if (-not $depArchCompatible) {
                         $depCompatible = $false
-                        $depIssues += "Architecture mismatch: $($dep.Architecture) on $SystemArch"
+                        [void]$depIssues.Add("Architecture mismatch: $($dep.Architecture) on $SystemArch")
                         $allDependenciesCompatible = $false
                         
                         if (-not $dep.IsOptional) {
@@ -582,7 +604,7 @@ function Test-AppxpackArchiveCompatibility {
                         Issues           = $depIssues
                     }
                     
-                    $dependencyCompatibilityResults += $depResult
+                    [void]$dependencyCompatibilityResults.Add($depResult)
                     
                     # Display dependency status
                     $depDisplayName = "$($dep.Name) v$($dep.Version) [$($dep.Architecture)]"
@@ -606,7 +628,7 @@ function Test-AppxpackArchiveCompatibility {
                 
                 if (-not $allDependenciesCompatible) {
                     $incompatibleCount = ($dependencyCompatibilityResults | Where-Object { -not $_.IsCompatible }).Count
-                    $issues += "$incompatibleCount dependency(ies) incompatible with system"
+                    [void]$issues.Add("$incompatibleCount dependency(ies) incompatible with system")
                 }
             }
             
