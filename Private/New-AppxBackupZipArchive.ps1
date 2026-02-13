@@ -48,7 +48,7 @@
     It ensures proper structure and metadata for Install-AppxBackup orchestration.
     
     Author: DeltaGa
-    Version: 2.0.1
+    Version: 2.0.2
 
 .EXAMPLE
     $result = New-AppxBackupZipArchive -SourceDirectory $tempDir -OutputPath $zipPath -ManifestData $manifest

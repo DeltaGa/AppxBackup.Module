@@ -11,7 +11,7 @@
 .NOTES
     Name: AppxBackup
     Author: DeltaGa
-    Version: 2.0.1
+    Version: 2.0.2
     LastModified: 2026-02-13
     
     Requires:
@@ -226,7 +226,7 @@ $MyInvocation.MyCommand.ScriptBlock.Module.OnRemove = {
 #endregion
 
 # Module initialization message
-Write-Verbose "AppxBackup v2.0.1 loaded successfully"
+Write-Verbose "AppxBackup v2.0.2 loaded successfully"
 Write-Verbose "Private functions: $($privateFiles.Count)"
 Write-Verbose "Public functions: $($publicFiles.Count)"
 Write-Verbose "Log path: $script:LogPath"

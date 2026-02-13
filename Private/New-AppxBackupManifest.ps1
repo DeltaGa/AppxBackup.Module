@@ -41,7 +41,7 @@
     Version 1.0 is the initial implementation with ZIP-based packaging.
     
     Author: DeltaGa
-    Version: 2.0.1
+    Version: 2.0.2
 
 .EXAMPLE
     $manifest = New-AppxBackupManifest -MainPackageInfo $mainPkg -DependencyInfo $deps -PackageFiles $files

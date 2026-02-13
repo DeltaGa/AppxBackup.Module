@@ -3,7 +3,7 @@
     RootModule = 'AppxBackup.psm1'
 
     # Version number of this module.
-    ModuleVersion = '2.0.1'
+    ModuleVersion = '2.0.2'
 
     # Supported PSEditions
     CompatiblePSEditions = @('Desktop', 'Core')
@@ -169,7 +169,7 @@ Key Features:
 
             # ReleaseNotes of this module
             ReleaseNotes = @'
-Version 2.0.1 (January 20, 2026)
+Version 2.0.2 (Febuary 13, 2026)
 ================================
 
 RELEASE SUMMARY:

@@ -1,6 +1,6 @@
 # AppxBackup Module - Usage Examples
 
-**Complete console reference for the AppxBackup v2.0.1 module.**
+**Complete console reference for the AppxBackup v2.0.2 module.**
 
 All examples assume you've imported the module:
 ```powershell

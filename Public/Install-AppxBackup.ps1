@@ -75,7 +75,7 @@
     - Windows 10 1809+ or Windows 11
     
     Author: DeltaGa
-    Version: 2.0.1
+    Version: 2.0.2
 #>
 
 function Install-AppxBackup {
@@ -162,7 +162,7 @@ begin {
     }
     
     Write-Host "`n=== APPX Package Installation Script ===" -ForegroundColor Cyan
-    Write-Host "Version: 2.0.1`n" -ForegroundColor Gray
+    Write-Host "Version: 2.0.2`n" -ForegroundColor Gray
 }
 
 process {

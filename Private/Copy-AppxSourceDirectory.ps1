@@ -25,7 +25,7 @@
 
 .NOTES
     Author: DeltaGa
-    Version: 2.0.1
+    Version: 2.0.2
 #>
 
 function Copy-AppxSourceDirectory {
@@ -188,7 +188,7 @@ function Copy-AppxSourceDirectory {
 
 .NOTES
     Author: DeltaGa
-    Version: 2.0.1
+    Version: 2.0.2
 #>
 
 function Copy-DirectoryNET {
@@ -246,7 +246,7 @@ function Copy-DirectoryNET {
 
 .NOTES
     Author: DeltaGa
-    Version: 2.0.1
+    Version: 2.0.2
 #>
 
 function Remove-AppxSignatureFiles {

@@ -24,7 +24,7 @@
 
 .NOTES
     Author: DeltaGa
-    Version: 2.0.1
+    Version: 2.0.2
 #>
 
 function Install-AppxCertificateToStore {

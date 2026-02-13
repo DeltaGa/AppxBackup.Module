@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Comprehensive test script for AppxBackup.Module v2.0.1 public functions.
+    Comprehensive test script for AppxBackup.Module v2.0.2 public functions.
 
 .DESCRIPTION
     Validates all 8 exported public functions and their parameter combinations:
@@ -35,7 +35,7 @@
 
 .NOTES
     Author: DeltaGa
-    Version: 2.0.1
+    Version: 2.0.2
 #>
 
 [CmdletBinding()]
@@ -225,7 +225,7 @@ function Write-Section {
 
 Write-Host "`n" -NoNewline
 Write-Host ('=' * 76) -ForegroundColor White
-Write-Host "  AppxBackup.Module v2.0.1 - Comprehensive Test Suite" -ForegroundColor White
+Write-Host "  AppxBackup.Module v2.0.2 - Comprehensive Test Suite" -ForegroundColor White
 Write-Host "  Started: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor Gray
 Write-Host "  Test Folder: $TestFolder" -ForegroundColor Gray
 Write-Host "  App Search : *$AppName*" -ForegroundColor Gray
@@ -1053,7 +1053,7 @@ Write-Host "  Pass Rate   : $([Math]::Round(($script:PassCount / [Math]::Max($to
 
 $resultsContent = @"
 ================================================================================
-  AppxBackup.Module v2.0.1 - Test Results
+  AppxBackup.Module v2.0.2 - Test Results
   Run Date    : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
   Test Folder : $testRunDir
   App Tested  : $($app.Name) v$($app.Version) ($($app.PackageFullName))

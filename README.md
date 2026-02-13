@@ -1,11 +1,11 @@
 <img src="https://raw.githubusercontent.com/DeltaGa/AppxBackup.Module/main/Assets/icon.png" alt="AppxBackup Icon" width="100" height="100">
 
-# AppxBackup PowerShell Module v2.0.1
+# AppxBackup PowerShell Module v2.0.2
 
 ## Windows Application Package Backup & Restoration Toolkit
 
-**Version:** 2.0.1  
-**Release Date:** January 20, 2026  
+**Version:** 2.0.2  
+**Release Date:** Febuary 13, 2026  
 **PowerShell:** 5.1+ (7.5+ Recommended)
 
 ---
@@ -442,7 +442,7 @@ When reporting issues, include:
 
 ## Changelog
 
-### Version 2.0.1 (January 20, 2026)
+### Version 2.0.2 (Febuary 13, 2026)
 
 #### Dependency Packaging
 - Replaced bundle system with ZIP archives (.appxpack) containing packages, certificates, and metadata
