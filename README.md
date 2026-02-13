@@ -21,6 +21,7 @@
 - [Troubleshooting](#troubleshooting)
 - [Limitations](#limitations)
 - [Module Architecture](#module-architecture)
+- [Testing Infrastructure](#testing-infrastructure)
 - [Support](#support)
 - [Changelog](#changelog)
 - [Citations](#citations)
@@ -361,6 +362,7 @@ Some applications cannot be successfully restored after being repackaged. If a r
 AppxBackup.Module/
 ├── AppxBackup.psd1           # Module manifest
 ├── AppxBackup.psm1           # Module loader
+├── Test-AppxBackupModule.ps1 # Module test suite
 ├── Import-AppxBackup.ps1     # Quick import helper
 │
 ├── Config/                   # Externalized configuration
@@ -408,6 +410,29 @@ AppxBackup.Module/
 └── Examples/                 # Usage examples
     └── UsageExamples.md
 ```
+
+---
+
+## Testing Infrastructure
+
+### Test-AppxBackupModule.ps1
+
+A comprehensive test harness that validates all 8 exported public functions with multiple parameter combinations.
+
+**Automatic app discovery** via Get-AppxPackage pattern matching eliminates manual configuration.
+Full console transcript and structured results file saved to timestamped test run directories.
+
+**Usage:**
+```powershell
+# Test with custom app and output folder
+.\Test-AppxBackupModule.ps1 -TestFolder "C:\Temp\AppxTest\" -AppName "Netflix"
+
+# Include destructive installation test (optional)
+.\Test-AppxBackupModule.ps1 -TestFolder "C:\Temp\" -AppName "Spotify" -TestInstall
+```
+
+Results include pass/fail/skip/error counts, detailed timing, and structured output suitable for CI/CD integration.
+
 ---
 
 ### Configuration System
@@ -442,35 +467,11 @@ When reporting issues, include:
 
 ## Changelog
 
-### Version 2.0.2 (Febuary 13, 2026)
+### Version 2.0.2 (February 13, 2026)
 
-#### Dependency Packaging
-- Replaced bundle system with ZIP archives (.appxpack) containing packages, certificates, and metadata
-- Metadata-driven installation orchestration with ordered dependency resolution
-
-#### Configuration System
-- Introduced external JSON-based configuration system for module extensibility
-
-#### Manifest Parsing
-- Rewrote Get-AppxManifestData with multi-tier fallback strategies for namespace resolution
-- Handles malformed and non-standard manifests without hard dependency on Microsoft schemas
-
-#### Certificate Management
-- Automatic installation to Trusted Root store immediately after creation
-- Privilege escalation fallback with intelligent warnings
-- Individual certificates for each dependency in ZIP archives
-
-#### SDK Tool Validation
-- Test-AppxToolAvailability now returns tool path string instead of boolean
-- Mandatory validation in Backup-AppxPackage with installation diagnostics and PATH analysis
-
-#### Process Execution
-- Unified process safety with tool-specific timeouts
-- Output buffer limit per stream to prevent memory exhaustion
-
-#### Installation
-- Extended Install-AppxBackup to support ZIP archives with nested package handling
-- Improved progress reporting with separate extraction, validation, and installation stages
+#### Code Quality & Maintainability
+- Extracted 11 new private helper functions to improve code organization and testability.
+- Refactored core functions (Backup-AppxPackage, New-AppxPackageInternal) by removing ~600 lines of duplicate/embedded logic.
 
 #### Future Changes (Planned)
   *Nothing explicitly planned for future versions.*
