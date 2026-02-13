@@ -334,7 +334,7 @@ function Test-AppxpackArchiveIntegrity {
             
             # If manifest validation requested, validate schema
             if ($CheckManifest.IsPresent -and $manifestEntry) {
-                manifestSchemaValid = $true
+                $manifestSchemaValid = $true
                 
                 # Extract and parse manifest
                 $manifestPath = [System.IO.Path]::Combine($tempDir, $manifestFileName)
@@ -391,7 +391,7 @@ function Test-AppxpackArchiveIntegrity {
             # If signature verification requested, validate all packages
             $packageValidationResults = @()
             if ($VerifySignature.IsPresent -and $hasPackagesDir) {
-                allPackagesValid = $true
+                $allPackagesValid = $true
                 
                 # Get all package entries
                 $packageEntries = $archive.Entries | Where-Object { 
@@ -451,7 +451,7 @@ function Test-AppxpackArchiveIntegrity {
                 }
                 
                 # Aggregate package validation issues
-                $failedPackages = $packageValidationResults | Where-Object { -not $_.SignatureValid }
+                $failedPackages = @($packageValidationResults | Where-Object { -not $_.SignatureValid })
                 if ($failedPackages.Count -gt 0) {
                     $issues += "$($failedPackages.Count) package(s) have invalid signatures"
                 }

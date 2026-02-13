@@ -50,6 +50,9 @@
 .NOTES
     For .appx files, temporarily extracts manifest for analysis.
     Supports both installed packages and backup files.
+
+    Author: DeltaGa
+    Version: 2.0.1
 #>
 
 function Export-AppxDependencies {
@@ -83,20 +86,7 @@ function Export-AppxDependencies {
     begin {
         Write-AppxLog -Message "Exporting dependency information" -Level 'Verbose'
         
-        # Helper function for HTML encoding to prevent XSS
-        function ConvertTo-HtmlEncodedString {
-            param([string]$Text)
-            if ([string]::IsNullOrEmpty($Text)) { return '' }
-            return [System.Web.HttpUtility]::HtmlEncode($Text)
-        }
-        
-        # Load System.Web assembly for HTML encoding
-        try {
-            Add-Type -AssemblyName System.Web -ErrorAction Stop
-        }
-        catch {
-            Write-AppxLog -Message "System.Web assembly not available, HTML encoding will use basic fallback" -Level 'Warning'
-        }
+        # ConvertTo-HtmlEncodedString is now loaded from Private/ConvertTo-HtmlEncodedString.ps1
         
         # Auto-detect format from extension if not specified
         if ($null -eq $Format) {

@@ -37,11 +37,11 @@
     Structured manifest data ready for ConvertTo-Json and ZIP inclusion.
 
 .NOTES
-    Author: DeltaGa
-    Version: 2.0.1
-    
     The manifest schema is versioned to support future format evolution.
     Version 1.0 is the initial implementation with ZIP-based packaging.
+    
+    Author: DeltaGa
+    Version: 2.0.1
 
 .EXAMPLE
     $manifest = New-AppxBackupManifest -MainPackageInfo $mainPkg -DependencyInfo $deps -PackageFiles $files

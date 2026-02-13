@@ -1,447 +1,603 @@
-# AppxBackup Usage Examples
+# AppxBackup Module - Usage Examples V2
 
-## Real-World Scenarios and Solutions
+**Complete console reference for the AppxBackup v2.0.1 module.**
 
----
-
-## Example 1: Basic App Backup
-
-**Scenario:** You want to back up "Disney's Wreck-It Ralph" before resetting your PC.
-
+All examples assume you've imported the module:
 ```powershell
-# Find the app
-$app = Get-AppxPackage -Name "*Ralph*"
+cd "C:\Path\AppxBackup.Module"
+.\Import-AppxBackup.ps1
+```
 
-# Backup the app
-Backup-AppxPackage -PackagePath $app.InstallLocation -OutputPath "C:\GameBackups" -Verbose
-
-# Result:
-# [CHECK] Package created: C:\GameBackups\Disney.Wreck-itRalph_1.0.0.12_x86__6rarf9sa4v8jt.appx
-# [CHECK] Certificate created: C:\GameBackups\Disney.Wreck-itRalph_1.0.0.12_x86__6rarf9sa4v8jt.cer
+And have identified your target app:
+```powershell
+$app = Get-AppxPackage -Name "*AppName*"
 ```
 
 ---
 
-## Example 2: Batch Backup Multiple Apps
+## 1. Get-AppxToolPath
 
-**Scenario:** You're migrating to a new PC and want to backup all Adobe apps.
+**Purpose:** Locate Windows SDK tools needed for packaging operations.
 
+**Basic usage:**
 ```powershell
-# Backup all Adobe apps
-$outputPath = "D:\AppBackups\Adobe"
-
-Get-AppxPackage -Name "*Adobe*" | ForEach-Object {
-    Write-Host "Backing up: $($_.Name)" -ForegroundColor Cyan
-    
-    try {
-        Backup-AppxPackage -PackagePath $_.InstallLocation `
-            -OutputPath $outputPath `
-            -IncludeDependencies `
-            -CompressionLevel Maximum `
-            -Force `
-            -ErrorAction Stop
-        
-        Write-Host "  [CHECK] Success" -ForegroundColor Green
-    }
-    catch {
-        Write-Host "  [X] Failed: $_" -ForegroundColor Red
-    }
-}
-
-# Generate summary report
-Get-ChildItem -Path $outputPath -Filter "*.appx" | 
-    Select-Object Name, @{N='SizeMB';E={[Math]::Round($_.Length/1MB,2)}} |
-    Format-Table -AutoSize
+Get-AppxToolPath -ToolName MakeAppx
 ```
 
----
+**What it returns:** Full path to the tool executable, or `$null` if not found.
 
-## Example 3: Backup with Custom Certificate
-
-**Scenario:** You need a certificate with specific validity and key strength.
-
+**Use case:** Verify that Windows SDK is installed and accessible before running backups.
 ```powershell
-# Create high-security certificate (5 years, 4096-bit)
-$certPassword = ConvertTo-SecureString "MyVerySecurePassword123!" -AsPlainText -Force
-
-$cert = New-AppxBackupCertificate `
-    -Subject "CN=My Organization Code Signing, O=MyOrg, C=US" `
-    -OutputPath "C:\Certificates\MyOrg_CodeSigning.cer" `
-    -ValidityYears 5 `
-    -KeyLength 4096 `
-    -Password $certPassword `
-    -ExportPrivateKey `
-    -Verbose
-
-Write-Host "Certificate Thumbprint: $($cert.Thumbprint)" -ForegroundColor Yellow
-Write-Host "Valid until: $($cert.NotAfter)" -ForegroundColor Yellow
-
-# Use this certificate for all backups
-$apps = Get-AppxPackage -Publisher "*MyOrg*"
-
-foreach ($app in $apps) {
-    Backup-AppxPackage -PackagePath $app.InstallLocation `
-        -OutputPath "C:\EnterpriseBackups" `
-        -CertificateSubject "CN=My Organization Code Signing, O=MyOrg, C=US" `
-        -CompressionLevel Maximum
+if (Get-AppxToolPath -ToolName MakeAppx) {
+    Write-Host "MakeAppx is available"
+} else {
+    Write-Host "Install Windows SDK to use this module"
 }
 ```
 
+**With -Refresh:** Force the module to rediscover tools (clears cache).
+```powershell
+Get-AppxToolPath -ToolName SignTool -Refresh
+```
+
 ---
 
-## Example 4: Dependency Analysis
+## 2. Backup-AppxPackage
 
-**Scenario:** You need to understand what dependencies your app requires.
+**Purpose:** Create a backup of an installed application with certificate and signing.
+
+### Basic Backup (Single File)
 
 ```powershell
-# Get dependency information
-$app = Get-AppxPackage -Name "MyComplexApp"
+Backup-AppxPackage -PackagePath $app.InstallLocation -OutputPath "C:\Backups"
+```
 
+Creates:
+- `AppName_Version_Arch__PublisherID.appx` - The signed package
+- `AppName_Version_Arch__PublisherID.cer` - The certificate for installation
+
+### Backup with Dependencies (ZIP Archive)
+
+```powershell
+Backup-AppxPackage -PackagePath $app.InstallLocation -OutputPath "C:\Backups" -IncludeDependencies
+```
+
+Creates:
+- `AppName_Version_Arch__PublisherID.appxpack` - ZIP file containing:
+  - Main package (.appx)
+  - All dependency packages (.appx files)
+  - Individual certificates for each package
+  - `AppxBackupManifest.json` - Installation orchestration metadata
+
+**Use this when:** Migrating to another system or ensuring all dependencies are preserved.
+
+### Dependency Analysis Only (No Backup)
+
+```powershell
+Backup-AppxPackage -PackagePath $app.InstallLocation -OutputPath "C:\Reports" -DependencyReportOnly
+```
+
+Creates: `AppName_Dependencies.json` with dependency information only.
+
+**Use this when:** You just need to document what dependencies an app has.
+
+### Backup without Certificate (For Manual Signing)
+
+```powershell
+Backup-AppxPackage -PackagePath $app.InstallLocation -OutputPath "C:\Backups" -NoCertificate
+```
+
+**Use this when:** You'll sign the package with an existing certificate separately.
+
+### Overwrite Existing Files
+
+```powershell
+Backup-AppxPackage -PackagePath $app.InstallLocation -OutputPath "C:\Backups" -Force
+```
+
+Without `-Force`, the command will fail if output files already exist.
+
+### With Custom Compression
+
+```powershell
+Backup-AppxPackage -PackagePath $app.InstallLocation -OutputPath "C:\Backups" -CompressionLevel Maximum
+```
+
+Valid values: `None`, `Fast`, `Normal`, `Maximum`. Default is `Normal`.
+
+### Pipeline Example
+
+```powershell
+Get-AppxPackage -Name "MyApp" | Backup-AppxPackage -OutputPath "C:\Backups" -IncludeDependencies
+```
+
+---
+
+## 3. Get-AppxBackupInfo
+
+**Purpose:** Examine a backed-up package without installing it.
+
+### Basic Info
+
+```powershell
+Get-AppxBackupInfo -PackagePath "C:\Backups\MyApp.appx"
+```
+
+Returns:
+- PackageName
+- PackageVersion
+- PackageArchitecture (x86, x64, ARM, ARM64)
+- PackageSizeMB
+- Publisher
+
+### With File List
+
+```powershell
+Get-AppxBackupInfo -PackagePath "C:\Backups\MyApp.appx" -IncludeFileList
+```
+
+Adds `.FileList` property - array of all files in the package.
+
+### With Signature Info
+
+```powershell
+Get-AppxBackupInfo -PackagePath "C:\Backups\MyApp.appx" -IncludeSignatureInfo
+```
+
+Adds `.SignatureInfo` property with certificate details.
+
+### With Raw Manifest
+
+```powershell
+Get-AppxBackupInfo -PackagePath "C:\Backups\MyApp.appx" -IncludeManifestXml
+```
+
+Adds `.ManifestXml` property - the raw AppxManifest.xml as a string.
+
+### All Info Combined
+
+```powershell
+Get-AppxBackupInfo -PackagePath "C:\Backups\MyApp.appx" -IncludeFileList -IncludeSignatureInfo -IncludeManifestXml
+```
+
+### For ZIP Archives (.appxpack)
+
+```powershell
+Get-AppxBackupInfo -PackagePath "C:\Backups\MyApp.appxpack"
+```
+
+Returns:
+- Same as above, plus
+- IsZipArchive: $true
+- ContainedPackages: Array of all packages in archive
+- ContainedCertificates: Array of all certificates
+- TotalArchiveSize: Combined size
+
+---
+
+## 4. Test-AppxPackageIntegrity
+
+**Purpose:** Verify that a package is not corrupted and is properly signed.
+
+### Basic Check
+
+```powershell
+Test-AppxPackageIntegrity -PackagePath "C:\Backups\MyApp.appx"
+```
+
+Returns `.IsValid` - Boolean indicating if archive is intact.
+
+### Check Signature
+
+```powershell
+Test-AppxPackageIntegrity -PackagePath "C:\Backups\MyApp.appx" -VerifySignature
+```
+
+Returns:
+- `.IsValid` - Archive is intact
+- `.SignatureValid` - Certificate signature is valid
+
+### Check Manifest
+
+```powershell
+Test-AppxPackageIntegrity -PackagePath "C:\Backups\MyApp.appx" -CheckManifest
+```
+
+Returns:
+- `.IsValid` - Archive is intact
+- `.ManifestValid` - Manifest XML is well-formed
+
+### Full Validation
+
+```powershell
+Test-AppxPackageIntegrity -PackagePath "C:\Backups\MyApp.appx" -VerifySignature -CheckManifest
+```
+
+### For ZIP Archives
+
+```powershell
+Test-AppxPackageIntegrity -PackagePath "C:\Backups\MyApp.appxpack" -VerifySignature -CheckManifest
+```
+
+Additionally validates:
+- Archive structure (Packages/, Certificates/, manifest)
+- AppxBackupManifest.json schema
+- All contained package signatures
+
+---
+
+## 5. Test-AppxBackupCompatibility
+
+**Purpose:** Check if a package can be installed on the current system.
+
+### Basic Check
+
+```powershell
+Test-AppxBackupCompatibility -PackagePath "C:\Backups\MyApp.appx"
+```
+
+Returns:
+- `.IsCompatible` - Can this package be installed?
+- `.ArchitectureCompatible` - Does CPU architecture match?
+- `.SystemArchitecture` - System's architecture (x64, ARM64, etc.)
+- `.PackageArchitecture` - Package's required architecture
+
+### With Dependency Check
+
+```powershell
+Test-AppxBackupCompatibility -PackagePath "C:\Backups\MyApp.appx" -CheckDependencies
+```
+
+Additionally checks if all required dependencies are installed on the system.
+
+### With Detailed Report
+
+```powershell
+Test-AppxBackupCompatibility -PackagePath "C:\Backups\MyApp.appx" -Detailed
+```
+
+Returns detailed information and recommendations for incompatibilities.
+
+### Full Analysis
+
+```powershell
+Test-AppxBackupCompatibility -PackagePath "C:\Backups\MyApp.appx" -CheckDependencies -Detailed
+```
+
+### For ZIP Archives
+
+```powershell
+Test-AppxBackupCompatibility -PackagePath "C:\Backups\MyApp.appxpack" -CheckDependencies -Detailed
+```
+
+Additionally analyzes all contained packages and dependencies.
+
+---
+
+## 6. Export-AppxDependencies
+
+**Purpose:** Document all dependencies for an application in various formats. Use -IncludeOptional to ensure that dependencies are listed.
+
+### Export to JSON
+
+```powershell
+Export-AppxDependencies -PackagePath $app.InstallLocation -OutputPath "C:\Reports\deps.json" -Format JSON
+```
+
+### Export to HTML
+
+```powershell
+Export-AppxDependencies -PackagePath $app.InstallLocation -OutputPath "C:\Reports\deps.html" -Format HTML
+```
+
+Best for viewing in a browser. Creates a formatted report table.
+
+### Export to XML
+
+```powershell
+Export-AppxDependencies -PackagePath $app.InstallLocation -OutputPath "C:\Reports\deps.xml" -Format XML
+```
+
+### Export to CSV
+
+```powershell
+Export-AppxDependencies -PackagePath $app.InstallLocation -OutputPath "C:\Reports\deps.csv" -Format CSV
+```
+
+Best for importing into Excel or analysis tools.
+
+### Auto-detect Format from Filename
+
+```powershell
+Export-AppxDependencies -PackagePath $app.InstallLocation -OutputPath "C:\Reports\deps.json"
+```
+
+Format is automatically detected from the `.json` extension (no `-Format` needed).
+
+### Recursive Analysis
+
+```powershell
+Export-AppxDependencies -PackagePath $app.InstallLocation -OutputPath "C:\Reports\deps.json" -Recursive
+```
+
+Analyzes dependencies of dependencies (nested).
+
+### Include Optional Dependencies
+
+```powershell
+Export-AppxDependencies -PackagePath $app.InstallLocation -OutputPath "C:\Reports\deps.json" -IncludeOptional
+```
+
+Includes optional framework packages.
+
+### With Depth Limit
+
+```powershell
+Export-AppxDependencies -PackagePath $app.InstallLocation -OutputPath "C:\Reports\deps.json" -Recursive -MaxDepth 2
+```
+
+Limits recursive analysis to 2 levels deep. Default is 3.
+
+### From Backup File
+
+```powershell
+Export-AppxDependencies -PackagePath "C:\Backups\MyApp.appx" -OutputPath "C:\Reports\deps.json"
+```
+
+Works on both installed packages and backup .appx files.
+
+---
+
+## 7. New-AppxBackupCertificate
+
+**Purpose:** Create a self-signed certificate for code signing packages.
+
+### Basic Certificate
+
+```powershell
+New-AppxBackupCertificate -Subject "CN=MyCompany" -OutputPath "C:\Certs\cert.cer"
+```
+
+Creates:
+- Certificate in certificate store (CurrentUser\My)
+- Exports public key to `.cer` file
+
+Returns: `System.Security.Cryptography.X509Certificates.X509Certificate2` object with certificate details.
+
+### With Custom Validity Period
+
+```powershell
+New-AppxBackupCertificate -Subject "CN=MyCompany" -OutputPath "C:\Certs\cert.cer" -ValidityYears 5
+```
+
+Default is 3 years. Valid range: 1-10 years.
+
+### With Custom Key Length
+
+```powershell
+New-AppxBackupCertificate -Subject "CN=MyCompany" -OutputPath "C:\Certs\cert.cer" -KeyLength 2048
+```
+
+Valid values: 2048, 3072, 4096 bits. Default is 4096 (maximum security).
+
+### Export Private Key (PFX)
+
+```powershell
+$pwd = ConvertTo-SecureString "YourPassword!" -AsPlainText -Force
+New-AppxBackupCertificate -Subject "CN=MyCompany" -OutputPath "C:\Certs\cert.cer" `
+    -Password $pwd -ExportPrivateKey
+```
+
+Creates both `.cer` (public) and `.pfx` (private key protected with password).
+
+### Replace Existing Certificate
+
+```powershell
+New-AppxBackupCertificate -Subject "CN=MyCompany" -OutputPath "C:\Certs\cert.cer" -ReplaceExisting
+```
+
+Removes any existing certificates with the same subject before creating a new one.
+
+### Overwrite File Without Prompting
+
+```powershell
+New-AppxBackupCertificate -Subject "CN=MyCompany" -OutputPath "C:\Certs\cert.cer" -Force
+```
+
+Overwrites existing `.cer` file if it exists.
+
+### Different Certificate Store
+
+```powershell
+New-AppxBackupCertificate -Subject "CN=MyCompany" -OutputPath "C:\Certs\cert.cer" -StoreLocation "LocalMachine\My"
+```
+
+Default is `CurrentUser\My`. Use `LocalMachine\My` for system-wide certificates (requires admin).
+
+---
+
+## 8. Install-AppxBackup
+
+**Purpose:** Install a backed-up package with automatic certificate trust.
+
+### Basic Install (Auto-detect Certificate)
+
+```powershell
+Install-AppxBackup -PackagePath "C:\Backups\MyApp.appx"
+```
+
+Automatically looks for `MyApp.cer` in the same directory as the .appx file.
+
+### With Explicit Certificate
+
+```powershell
+Install-AppxBackup -PackagePath "C:\Backups\MyApp.appx" -CertificatePath "C:\Certs\MyApp.cer"
+```
+
+Uses the specified certificate file.
+
+### For Current User Only (No Admin)
+
+```powershell
+Install-AppxBackup -PackagePath "C:\Backups\MyApp.appx" -CertStoreLocation CurrentUser
+```
+
+Installs certificate to current user's store (no administrator required). Default is `LocalMachine` (system-wide, requires admin).
+
+### Skip Certificate Installation
+
+```powershell
+Install-AppxBackup -PackagePath "C:\Backups\MyApp.appx" -SkipCertificate
+```
+
+**Use when:** Certificate is already trusted on the system.
+
+### Force Reinstall
+
+```powershell
+Install-AppxBackup -PackagePath "C:\Backups\MyApp.appx" -Force
+```
+
+Reinstalls even if package is already installed.
+
+### From ZIP Archive with Dependencies
+
+```powershell
+Install-AppxBackup -PackagePath "C:\Backups\MyApp.appxpack"
+```
+
+Automatically:
+1. Extracts the .appxpack file
+2. Installs all certificates
+3. Installs packages in correct dependency order
+
+### Extract to Custom Location
+
+```powershell
+Install-AppxBackup -PackagePath "C:\Backups\MyApp.appxpack" -ExtractPath "D:\Temp\Extract"
+```
+
+Extracts .appxpack contents to specified directory instead of temp.
+
+### Skip Dependencies (ZIP Only)
+
+```powershell
+Install-AppxBackup -PackagePath "C:\Backups\MyApp.appxpack" -SkipDependencies
+```
+
+Installs only the main package from the .appxpack, skipping all dependencies.
+
+### Allow Unsigned Packages
+
+```powershell
+Install-AppxBackup -PackagePath "C:\Backups\Unsigned.appx" -AllowUnsigned
+```
+
+**Requires:** Windows Developer Mode enabled. Use with caution.
+
+### Pipeline Example
+
+```powershell
+Get-ChildItem "C:\Backups\*.appx" | Install-AppxBackup
+```
+
+Install multiple packages from a directory.
+
+---
+
+## Common Workflows
+
+### Workflow 1: Backup and Restore Single App
+
+```powershell
+# Step 1: Backup
+$app = Get-AppxPackage -Name "*Tivi*"
+$result = Backup-AppxPackage -PackagePath $app.InstallLocation -OutputPath "D:\Backups" -Force
+
+# Step 2: Transfer files to another computer
+
+# Step 3: Install on new computer
+Install-AppxBackup -PackagePath "D:\Backups\TiviMate_1.5.0.0_x64.appx"
+```
+
+### Workflow 2: Complete Migration with Dependencies
+
+```powershell
+# Step 1: Backup with all dependencies as single ZIP
+$app = Get-AppxPackage -Name "*ComplexApp*"
 $result = Backup-AppxPackage -PackagePath $app.InstallLocation `
-    -OutputPath "C:\Backups" `
-    -IncludeDependencies
+    -OutputPath "D:\CompleteBackup" `
+    -IncludeDependencies `
+    -Force
 
-# Display dependency report
-Write-Host "`n=== Dependency Report ===" -ForegroundColor Cyan
-Write-Host "Package: $($result.PackageName) v$($result.PackageVersion)"
-Write-Host "Dependencies: $($result.DependencyCount)"
-Write-Host "Missing: $($result.DependenciesMissing)"
+# Step 2: Transfer single .appxpack file to another computer
 
-if ($result.DependencyInfo) {
-    Write-Host "`nDetailed Dependencies:" -ForegroundColor Yellow
-    
-    $result.DependencyInfo.Dependencies | 
-        Format-Table Name, MinVersion, DependencyType, IsInstalled, InstalledVersion -AutoSize
-}
-
-# Export to JSON for documentation
-$result | ConvertTo-Json -Depth 10 | Out-File "C:\Reports\MyComplexApp_Dependencies.json"
+# Step 3: Install everything (all packages + dependencies) from one file
+Install-AppxBackup -PackagePath "D:\CompleteBackup\ComplexApp.appxpack"
 ```
 
----
-
-## Example 5: Validation Before Deployment
-
-**Scenario:** You need to verify a backup before deploying to production machines.
+### Workflow 3: Verify Backup Before Deployment
 
 ```powershell
-# Validate the backed-up package
-$packagePath = "C:\Backups\CriticalApp_1.5.0.0_x64__abc123.appx"
+$backupFile = "C:\Backups\MyApp.appx"
 
-# Comprehensive validation
-$validation = Test-AppxPackageIntegrity -PackagePath $packagePath `
-    -VerifySignature `
-    -CheckManifest
-
-if ($validation.IsValid) {
-    Write-Host "[CHECK] Package validation passed" -ForegroundColor Green
-    Write-Host "  - Archive: Valid"
-    Write-Host "  - Signature: $($validation.SignatureValid)"
-    Write-Host "  - Manifest: $($validation.ManifestValid)"
-    
-    # Safe to deploy
-    Write-Host "`nPackage ready for deployment" -ForegroundColor Cyan
-}
-else {
-    Write-Host "[X] Package validation FAILED" -ForegroundColor Red
-    Write-Host "Issues found:"
-    $validation.Issues | ForEach-Object { Write-Host "  - $_" -ForegroundColor Yellow }
-    
-    # Do not deploy
+# Check integrity
+$integrity = Test-AppxPackageIntegrity -PackagePath $backupFile -VerifySignature -CheckManifest
+if (-not $integrity.IsValid) {
+    Write-Host "Backup is corrupted - do not deploy"
     exit 1
 }
-```
-
----
-
-## Example 6: Automated Scheduled Backups
-
-**Scenario:** You want to automatically backup specific apps every week.
-
-```powershell
-# backup-apps-scheduled.ps1
-
-# Configuration
-$appsToBackup = @(
-    "Microsoft.Office.Excel",
-    "Adobe.CreativeCloud",
-    "Slack.Slack"
-)
-$backupRoot = "\\FileServer\AppBackups"
-$timestamp = Get-Date -Format "yyyy-MM-dd"
-$backupPath = Join-Path $backupRoot $timestamp
-
-# Create dated backup directory
-New-Item -Path $backupPath -ItemType Directory -Force | Out-Null
-
-# Import module
-Import-Module AppxBackup -ErrorAction Stop
-
-# Backup each app
-$results = @()
-
-foreach ($appName in $appsToBackup) {
-    try {
-        $app = Get-AppxPackage -Name $appName -ErrorAction Stop
-        
-        Write-Host "Backing up: $($app.Name)..." -ForegroundColor Cyan
-        
-        $result = Backup-AppxPackage -PackagePath $app.InstallLocation `
-            -OutputPath $backupPath `
-            -CompressionLevel Maximum `
-            -Force `
-            -ErrorAction Stop
-        
-        $results += [PSCustomObject]@{
-            App = $app.Name
-            Version = $app.Version
-            Status = "Success"
-            Size = "$($result.PackageFileSizeMB) MB"
-            Path = $result.PackageFilePath
-        }
-        
-        Write-Host "  [CHECK] Complete" -ForegroundColor Green
-    }
-    catch {
-        Write-Host "  [X] Failed: $_" -ForegroundColor Red
-        
-        $results += [PSCustomObject]@{
-            App = $appName
-            Version = "N/A"
-            Status = "Failed"
-            Size = "N/A"
-            Path = $_.Exception.Message
-        }
-    }
-}
-
-# Generate report
-$reportPath = Join-Path $backupPath "backup-report.html"
-
-$html = @"
-<!DOCTYPE html>
-<html>
-<head>
-    <title>App Backup Report - $timestamp</title>
-    <style>
-        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 20px; }
-        h1 { color: #0078D4; }
-        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-        th { background: #0078D4; color: white; padding: 10px; text-align: left; }
-        td { border: 1px solid #ddd; padding: 8px; }
-        tr:nth-child(even) { background: #f2f2f2; }
-        .success { color: green; font-weight: bold; }
-        .failed { color: red; font-weight: bold; }
-    </style>
-</head>
-<body>
-    <h1>App Backup Report</h1>
-    <p><strong>Date:</strong> $timestamp</p>
-    <p><strong>Location:</strong> $backupPath</p>
-    <table>
-        <tr>
-            <th>Application</th>
-            <th>Version</th>
-            <th>Status</th>
-            <th>Size</th>
-        </tr>
-        $(
-            $results | ForEach-Object {
-                $statusClass = if ($_.Status -eq "Success") { "success" } else { "failed" }
-                "<tr><td>$($_.App)</td><td>$($_.Version)</td><td class='$statusClass'>$($_.Status)</td><td>$($_.Size)</td></tr>"
-            }
-        )
-    </table>
-</body>
-</html>
-"@
-
-$html | Out-File -FilePath $reportPath -Encoding UTF8
-
-Write-Host "`nReport generated: $reportPath" -ForegroundColor Cyan
-
-# Send email notification (optional)
-# Send-MailMessage -To "admin@company.com" -Subject "App Backup Report - $timestamp" ...
-```
-
-**Schedule this script:**
-```powershell
-# Create scheduled task (run as administrator)
-$action = New-ScheduledTaskAction -Execute "PowerShell.exe" `
-    -Argument "-NoProfile -ExecutionPolicy Bypass -File C:\Scripts\backup-apps-scheduled.ps1"
-
-$trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At 2AM
-
-Register-ScheduledTask -TaskName "AppxWeeklyBackup" `
-    -Action $action `
-    -Trigger $trigger `
-    -Description "Weekly backup of critical APPX applications" `
-    -User "SYSTEM" `
-    -RunLevel Highest
-```
-
----
-
-## Example 7: Migration to New Hardware
-
-**Scenario:** Moving to a new computer with different architecture (x64 to ARM64).
-
-```powershell
-# OLD COMPUTER (x64)
-# ==================
-
-# Backup all apps
-$backupPath = "D:\MigrationBackup"
-$allApps = Get-AppxPackage | Where-Object { $_.SignatureKind -eq 'Store' }
-
-foreach ($app in $allApps) {
-    Backup-AppxPackage -PackagePath $app.InstallLocation `
-        -OutputPath $backupPath `
-        -IncludeDependencies `
-        -Force
-}
-
-# Copy to external drive or network share
-
-
-# NEW COMPUTER (ARM64)
-# =====================
 
 # Check compatibility
-$backups = Get-ChildItem -Path "E:\MigrationBackup" -Filter "*.appx"
-
-foreach ($backup in $backups) {
-    $compat = Test-AppxBackupCompatibility -PackagePath $backup.FullName
-    
-    if ($compat.IsCompatible) {
-        Write-Host "[CHECK] $($backup.Name) - Compatible" -ForegroundColor Green
-        
-        # Install
-        # Restore-AppxPackage -PackagePath $backup.FullName `
-        #     -CertificatePath $backup.FullName.Replace('.appx', '.cer')
-    }
-    else {
-        Write-Host "[X] $($backup.Name) - Incompatible: $($compat.Reason)" -ForegroundColor Red
-    }
+$compat = Test-AppxBackupCompatibility -PackagePath $backupFile -CheckDependencies
+if (-not $compat.IsCompatible) {
+    Write-Host "Package not compatible with this system"
+    exit 1
 }
+
+# Safe to install
+Install-AppxBackup -PackagePath $backupFile
+```
+
+### Workflow 4: Document Dependencies for Compliance
+
+```powershell
+$app = Get-AppxPackage -Name "*MyApp*"
+
+# Generate HTML report
+Export-AppxDependencies -PackagePath $app.InstallLocation `
+    -OutputPath "C:\Reports\MyApp_Dependencies.html" `
+    -Format HTML `
+    -Recursive `
+    -IncludeOptional
+
+# Open report
+Invoke-Item "C:\Reports\MyApp_Dependencies.html"
+```
+
+### Workflow 5: Batch Backup Multiple Apps
+
+```powershell
+$backupDir = "D:\AllBackups"
+
+Get-AppxPackage | Where-Object { $_.Publisher -like "*Microsoft*" } | ForEach-Object {
+    Write-Host "Backing up: $($_.Name)"
+    
+    Backup-AppxPackage -PackagePath $_.InstallLocation `
+        -OutputPath $backupDir `
+        -Force -IncludeDependencies
+}
+
+Write-Host "All backups complete in: $backupDir"
 ```
 
 ---
 
-## Example 8: Tool Discovery and Troubleshooting
+## Tips
 
-**Scenario:** Debugging why MakeAppx isn't being used.
-
-```powershell
-# Check tool availability
-Write-Host "=== Tool Availability Check ===" -ForegroundColor Cyan
-
-$tools = @('MakeAppx', 'SignTool', 'Certutil')
-
-foreach ($tool in $tools) {
-    $path = Get-AppxToolPath -ToolName $tool
-    
-    if ($path) {
-        Write-Host "[CHECK] $tool`: $path" -ForegroundColor Green
-        
-        # Get version
-        if ($tool -eq 'MakeAppx') {
-            $version = (& $path /? 2>&1) | Select-String -Pattern "Version"
-            Write-Host "  Version: $version" -ForegroundColor Gray
-        }
-    }
-    else {
-        Write-Host "[X] $tool`: Not found" -ForegroundColor Red
-    }
-}
-
-# Check PowerShell certificate cmdlets
-if (Get-Command New-SelfSignedCertificate -ErrorAction SilentlyContinue) {
-    Write-Host "[CHECK] Native PowerShell certificate support available" -ForegroundColor Green
-}
-
-# Module configuration
-Write-Host "`n=== Module Configuration ===" -ForegroundColor Cyan
-$AppxBackupConfig | Format-Table -AutoSize
-```
-
----
-
-## Example 9: Silent Deployment Script
-
-**Scenario:** Deploy backed-up apps to multiple machines silently.
-
-```powershell
-# deploy-apps.ps1
-# Run on target machine
-
-param(
-    [string]$BackupPath = "\\FileServer\AppBackups\2026-01-13",
-    [string[]]$AppsToInstall = @("MyApp", "AnotherApp")
-)
-
-Import-Module AppxBackup
-
-# Install certificates first
-Get-ChildItem -Path $BackupPath -Filter "*.cer" | ForEach-Object {
-    Write-Host "Installing certificate: $($_.Name)" -ForegroundColor Cyan
-    
-    # Import to Trusted Root (requires admin)
-    Import-Certificate -FilePath $_.FullName `
-        -CertStoreLocation Cert:\LocalMachine\Root `
-        -ErrorAction SilentlyContinue
-}
-
-# Install apps
-foreach ($appName in $AppsToInstall) {
-    $package = Get-ChildItem -Path $BackupPath -Filter "*$appName*.appx" | Select-Object -First 1
-    
-    if ($package) {
-        Write-Host "Installing: $($package.Name)" -ForegroundColor Cyan
-        
-        # Restore-AppxPackage -PackagePath $package.FullName -Force
-        # (Restore function implementation pending)
-        
-        Write-Host "  [CHECK] Installed" -ForegroundColor Green
-    }
-    else {
-        Write-Host "  [X] Package not found: $appName" -ForegroundColor Red
-    }
-}
-```
-
----
-
-## Tips and Best Practices
-
-### 1. Always Use `-Verbose` During Initial Testing
-```powershell
-Backup-AppxPackage -PackagePath $path -OutputPath $out -Verbose
-```
-
-### 2. Check Logs for Detailed Diagnostics
-```powershell
-Get-Content "$env:TEMP\AppxBackup_$(Get-Date -Format 'yyyyMMdd').log" -Tail 100
-```
-
-### 3. Use `-WhatIf` to Preview Actions
-```powershell
-Backup-AppxPackage -PackagePath $path -OutputPath $out -WhatIf
-```
-
-### 4. Store Certificates Securely
-```powershell
-# Use secure network locations with proper ACLs
-$certPath = "\\SecureFileServer\Certificates"
-# Set-Acl with restricted permissions
-```
-
-### 5. Validate Before Deployment
-```powershell
-# Always validate packages before deploying
-Test-AppxPackageIntegrity -PackagePath $pkg -VerifySignature -CheckManifest
-```
-
----
-
-**These examples demonstrate the power, flexibility, and robustness of the AppxBackup v2.0 module.**
+- **Always backup with `-IncludeDependencies`** when migrating to ensure nothing is missing.
+- **Use `-Force`** in scripts to avoid interactive prompts.
+- **Test compatibility** with `-CheckDependencies -Detailed` before deploying to new systems.
+- **Export dependencies to HTML** for easy visual review and documentation.
+- **Verify integrity** with `-VerifySignature -CheckManifest` before distributing backups.
+- **Use `-DependencyReportOnly`** for lightweight analysis without creating large archives.

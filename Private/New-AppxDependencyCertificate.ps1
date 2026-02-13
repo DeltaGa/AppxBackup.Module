@@ -39,11 +39,11 @@
     - StoreLocation: Certificate store path
 
 .NOTES
-    Author: DeltaGa
-    Version: 2.0.1
-    
     This function is designed for high-volume dependency processing.
     It uses cached configuration values for performance.
+    
+    Author: DeltaGa
+    Version: 2.0.1
 
 .EXAMPLE
     $cert = New-AppxDependencyCertificate `

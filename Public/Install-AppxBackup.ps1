@@ -69,9 +69,13 @@
     Installs package without installing certificate (assumes already trusted).
 
 .NOTES
+    Requires:
+    - PowerShell 5.1+ (7.4+ recommended)
+    - Administrator privileges for certificate operations
+    - Windows 10 1809+ or Windows 11
+    
     Author: DeltaGa
     Version: 2.0.1
-    Requires: PowerShell 5.1+, Windows 10 1809+
 #>
 
 function Install-AppxBackup {

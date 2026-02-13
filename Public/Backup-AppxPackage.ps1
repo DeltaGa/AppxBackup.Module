@@ -476,81 +476,26 @@ Windows SDK is MANDATORY for reliable APPX backup operations.
                             # INSTALL THE CERTIFICATE IMMEDIATELY (mirroring vanilla backup)
                             Write-AppxLog -Message "Installing certificate for $($dep.Name) to Trusted Root store..." -Level 'Debug'
                             
-                            try {
-                                # Try LocalMachine\Root first (requires Administrator)
-                                try {
-                                    Import-Certificate -FilePath $depCertResult.CertificatePath `
-                                        -CertStoreLocation "Cert:\LocalMachine\Root" `
-                                        -ErrorAction Stop | Out-Null
-                                    
-                                    Write-AppxLog -Message "Certificate installed to LocalMachine\Root for $($dep.Name)" -Level 'Debug'
-                                }
-                                catch {
-                                    # Fall back to CurrentUser\Root (no admin required)
-                                    Import-Certificate -FilePath $depCertResult.CertificatePath `
-                                        -CertStoreLocation "Cert:\CurrentUser\Root" `
-                                        -ErrorAction Stop | Out-Null
-                                    
-                                    Write-AppxLog -Message "Certificate installed to CurrentUser\Root for $($dep.Name)" -Level 'Debug'
-                                }
-                            }
-                            catch {
-                                Write-AppxLog -Message "WARNING: Failed to install certificate for $($dep.Name): $_" -Level 'Warning'
-                                # Continue even if certificate installation fails
+                            $certInstallResult = Install-AppxCertificateToStore `
+                                -CertificatePath $depCertResult.CertificatePath `
+                                -PackageIdentifier $dep.Name
+                            
+                            if (-not $certInstallResult.Installed) {
+                                Write-AppxLog -Message "WARNING: Failed to install certificate for $($dep.Name): $($certInstallResult.Error)" -Level 'Warning'
                             }
                             
                             # SIGN THE DEPENDENCY PACKAGE IMMEDIATELY
                             try {
-                                # Get certificate from store by thumbprint
-                                $depCertPath = "Cert:\CurrentUser\My\$($depCertResult.Thumbprint)"
-                                $depCert = Get-Item -LiteralPath $depCertPath -ErrorAction Stop
-                                
-                                Write-AppxLog -Message "Signing dependency package: $($dep.Name)" -Level 'Debug'
-                                
-                                # Find SignTool.exe
-                                $signToolPath = $null
-                                $makeAppxPath = Get-Command 'makeappx.exe' -ErrorAction SilentlyContinue | 
-                                    Select-Object -First 1 -ExpandProperty Source
-                                
-                                if ($makeAppxPath) {
-                                    $sdkDir = Split-Path -Path $makeAppxPath -Parent
-                                    $signToolTest = [System.IO.Path]::Combine($sdkDir, 'signtool.exe')
-                                    if (Test-Path -LiteralPath $signToolTest) {
-                                        $signToolPath = $signToolTest
-                                    }
-                                }
-                                
-                                if ($null -eq $signToolPath) {
-                                    $signToolCmd = Get-Command 'signtool.exe' -ErrorAction SilentlyContinue | 
-                                        Select-Object -First 1
-                                    if ($signToolCmd) {
-                                        $signToolPath = $signToolCmd.Source
-                                    }
-                                }
-                                
-                                if ($null -eq $signToolPath) {
-                                    throw "SignTool.exe not found"
-                                }
-                                
-                                # Sign the dependency package
-                                $signArgs = @(
-                                    'sign',
-                                    '/fd', 'SHA256',
-                                    '/sha1', $depCert.Thumbprint,
-                                    '/v',
-                                    $dep.PackagePath
-                                )
-                                
-                                $signResult = Invoke-ProcessSafely -FilePath $signToolPath `
-                                    -ArgumentList $signArgs `
-                                    -TimeoutSeconds 120 `
-                                    -NoWindow
+                                $signResult = Invoke-AppxSignTool `
+                                    -PackagePath $dep.PackagePath `
+                                    -CertificateThumbprint $depCertResult.Thumbprint `
+                                    -TimeoutSeconds 120
                                 
                                 if ($signResult.Success) {
                                     Write-AppxLog -Message "Dependency package signed: $($dep.Name)" -Level 'Debug'
                                 }
                                 else {
-                                    Write-AppxLog -Message "WARNING: Failed to sign dependency $($dep.Name): Exit code $($signResult.ExitCode)" -Level 'Warning'
+                                    Write-AppxLog -Message "WARNING: Failed to sign dependency $($dep.Name): $($signResult.Error)" -Level 'Warning'
                                 }
                             }
                             catch {
@@ -651,78 +596,26 @@ Windows SDK is MANDATORY for reliable APPX backup operations.
                         # INSTALL THE MAIN CERTIFICATE IMMEDIATELY (mirroring vanilla backup)
                         Write-AppxLog -Message "Installing main package certificate to Trusted Root store..." -Level 'Verbose'
                         
-                        try {
-                            # Try LocalMachine\Root first (requires Administrator)
-                            try {
-                                Import-Certificate -FilePath $mainCertPath `
-                                    -CertStoreLocation "Cert:\LocalMachine\Root" `
-                                    -ErrorAction Stop | Out-Null
-                                
-                                Write-AppxLog -Message "Main certificate installed to LocalMachine\Root (system-wide trust)" -Level 'Info'
-                            }
-                            catch {
-                                # Fall back to CurrentUser\Root (no admin required)
-                                Import-Certificate -FilePath $mainCertPath `
-                                    -CertStoreLocation "Cert:\CurrentUser\Root" `
-                                    -ErrorAction Stop | Out-Null
-                                
-                                Write-AppxLog -Message "Main certificate installed to CurrentUser\Root (user trust only)" -Level 'Warning'
-                                Write-AppxLog -Message "For system-wide trust, run as Administrator" -Level 'Warning'
-                            }
-                        }
-                        catch {
-                            Write-AppxLog -Message "WARNING: Failed to install main certificate: $_" -Level 'Warning'
-                            # Continue even if certificate installation fails
+                        $mainCertInstallResult = Install-AppxCertificateToStore `
+                            -CertificatePath $mainCertPath `
+                            -PackageIdentifier 'main package'
+                        
+                        if (-not $mainCertInstallResult.Installed) {
+                            Write-AppxLog -Message "WARNING: Failed to install main certificate: $($mainCertInstallResult.Error)" -Level 'Warning'
                         }
                         
                         # Sign the main package with SignTool
-                        $mainCertPath_store = "Cert:\CurrentUser\My\$($mainCertificate.Thumbprint)"
-                        $mainCert = Get-Item -LiteralPath $mainCertPath_store -ErrorAction Stop
-                        
-                        Write-AppxLog -Message "Signing main package with certificate: $($mainCert.Thumbprint)" -Level 'Debug'
-                        
-                        # Find SignTool.exe
-                        $signToolPath = $null
-                        $makeAppxPath = Get-Command 'makeappx.exe' -ErrorAction SilentlyContinue | 
-                            Select-Object -First 1 -ExpandProperty Source
-                        
-                        if ($makeAppxPath) {
-                            $sdkDir = Split-Path -Path $makeAppxPath -Parent
-                            $signToolTest = [System.IO.Path]::Combine($sdkDir, 'signtool.exe')
-                            if (Test-Path -LiteralPath $signToolTest) {
-                                $signToolPath = $signToolTest
-                            }
-                        }
-                        
-                        if ($null -eq $signToolPath) {
-                            $signToolCmd = Get-Command 'signtool.exe' -ErrorAction SilentlyContinue | 
-                                Select-Object -First 1
-                            if ($signToolCmd) {
-                                $signToolPath = $signToolCmd.Source
-                            }
-                        }
-                        
-                        if ($null -eq $signToolPath) {
-                            throw "SignTool.exe not found"
-                        }
+                        Write-AppxLog -Message "Signing main package with certificate: $($mainCertificate.Thumbprint)" -Level 'Debug'
                         
                         # Copy main package to work directory for signing
                         $mainPackageInZip = [System.IO.Path]::Combine($bundleWorkDir, [System.IO.Path]::GetFileName($packageOutputPath))
                         Copy-Item -Path $packageOutputPath -Destination $mainPackageInZip -Force
                         
                         # Sign the copy that will go in the ZIP
-                        $signArgs = @(
-                            'sign',
-                            '/fd', 'SHA256',
-                            '/sha1', $mainCert.Thumbprint,
-                            '/v',
-                            $mainPackageInZip
-                        )
-                        
-                        $signResult = Invoke-ProcessSafely -FilePath $signToolPath `
-                            -ArgumentList $signArgs `
-                            -TimeoutSeconds 300 `
-                            -NoWindow
+                        $signResult = Invoke-AppxSignTool `
+                            -PackagePath $mainPackageInZip `
+                            -CertificateThumbprint $mainCertificate.Thumbprint `
+                            -TimeoutSeconds 300
                         
                         if ($signResult.Success) {
                             Write-AppxLog -Message "Main package signed successfully" -Level 'Info'
@@ -730,7 +623,7 @@ Windows SDK is MANDATORY for reliable APPX backup operations.
                             $mainPackageFileEntry.PackagePath = $mainPackageInZip
                         }
                         else {
-                            Write-AppxLog -Message "WARNING: Failed to sign main package: Exit code $($signResult.ExitCode)" -Level 'Warning'
+                            Write-AppxLog -Message "WARNING: Failed to sign main package: $($signResult.Error)" -Level 'Warning'
                         }
                     }
                     catch {
@@ -827,34 +720,12 @@ Windows SDK is MANDATORY for reliable APPX backup operations.
                     # This is REQUIRED for the signed package to install without errors
                     Write-AppxLog -Message "Installing certificate to Trusted Root store..." -Level 'Verbose'
                     
-                    try {
-                        # Import to LocalMachine\Root requires Administrator privileges
-                        # Try LocalMachine first, fall back to CurrentUser if access denied
-                        try {
-                            Import-Certificate -FilePath $certOutputPath `
-                                -CertStoreLocation "Cert:\LocalMachine\Root" `
-                                -ErrorAction Stop | Out-Null
-                            
-                            Write-AppxLog -Message "Certificate installed to LocalMachine\Root (system-wide trust)" -Level 'Info'
-                            $certInstalled = $true
-                        }
-                        catch {
-                            # Likely not running as Administrator, try CurrentUser
-                            Write-AppxLog -Message "Cannot install to LocalMachine\Root (not Administrator), trying CurrentUser..." -Level 'Debug'
-                            
-                            Import-Certificate -FilePath $certOutputPath `
-                                -CertStoreLocation "Cert:\CurrentUser\Root" `
-                                -ErrorAction Stop | Out-Null
-                            
-                            Write-AppxLog -Message "Certificate installed to CurrentUser\Root (user trust only)" -Level 'Warning'
-                            Write-AppxLog -Message "For system-wide trust, run as Administrator or manually install to LocalMachine\Root" -Level 'Warning'
-                            $certInstalled = $true
-                        }
-                    }
-                    catch {
-                        Write-AppxLog -Message "Failed to automatically install certificate: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Warning'
+                    $standaloneInstallResult = Install-AppxCertificateToStore -CertificatePath $certOutputPath
+                    $certInstalled = $standaloneInstallResult.Installed
+                    
+                    if (-not $certInstalled) {
+                        Write-AppxLog -Message "Failed to automatically install certificate: $($standaloneInstallResult.Error)" -Level 'Warning'
                         Write-AppxLog -Message "You must manually install the certificate before the package can be installed" -Level 'Warning'
-                        $certInstalled = $false
                     }
                 }
 
@@ -862,7 +733,7 @@ Windows SDK is MANDATORY for reliable APPX backup operations.
                 $progressStage++
                 Write-Progress -Id $progressId -Activity "Backing up APPX Package" `
                     -Status "Stage $progressStage/$totalStages : Signing package" `
-                    -PercentComplete (($progressStage / $totalStages) * 100)
+                    -PercentComplete ([Math]::Min((($progressStage / $totalStages) * 100), 100))
                 
                 # ZIP archives (.appxpack) cannot be signed - certificates are included inside
                 if ($isZipArchive) {
@@ -877,86 +748,24 @@ Windows SDK is MANDATORY for reliable APPX backup operations.
                         # Set-AuthenticodeSignature uses wrong SIP provider and fails with SIP_SUBJECTINFO error
                         
                         try {
-                            # Get certificate from store by thumbprint
-                            $certPath = "Cert:\CurrentUser\My\$($certificate.Thumbprint)"
-                            $cert = Get-Item -LiteralPath $certPath -ErrorAction Stop
+                            Write-AppxLog -Message "Signing with certificate: $($certificate.Thumbprint)" -Level 'Debug'
                             
-                            Write-AppxLog -Message "Signing with certificate: $($cert.Thumbprint)" -Level 'Debug'
-                        
-                        # Find SignTool.exe (should be in same SDK as MakeAppx)
-                        $signToolPath = $null
-                        
-                        # Try to find SignTool in same directory as MakeAppx
-                        $makeAppxPath = Get-Command 'makeappx.exe' -ErrorAction SilentlyContinue | 
-                            Select-Object -First 1 -ExpandProperty Source
-                        
-                        if ($makeAppxPath) {
-                            $sdkDir = Split-Path -Path $makeAppxPath -Parent
-                            $signToolTest = [System.IO.Path]::Combine($sdkDir, 'signtool.exe')
-                            if (Test-Path -LiteralPath $signToolTest) {
-                                $signToolPath = $signToolTest
+                            $signResult = Invoke-AppxSignTool `
+                                -PackagePath $packageOutputPath `
+                                -CertificateThumbprint $certificate.Thumbprint `
+                                -TimeoutSeconds 300
+                            
+                            if (-not $signResult.Success) {
+                                throw "SignTool failed: $($signResult.Error)"
                             }
+                            
+                            Write-AppxLog -Message "Package signed successfully" -Level 'Info'
                         }
-                        
-                        # Fallback: search PATH
-                        if ($null -eq $signToolPath) {
-                            $signToolCmd = Get-Command 'signtool.exe' -ErrorAction SilentlyContinue | 
-                                Select-Object -First 1
-                            if ($signToolCmd) {
-                                $signToolPath = $signToolCmd.Source
-                            }
-                        }
-                        
-                        if ($null -eq $signToolPath) {
-                            throw "SignTool.exe not found. Install Windows SDK to sign APPX packages."
-                        }
-                        
-                        Write-AppxLog -Message "Using SignTool: $signToolPath" -Level 'Debug'
-                        
-                        # Build SignTool command for APPX signing
-                        # sign = sign command
-                        # /fd = file digest algorithm (required)
-                        # /sha1 = certificate thumbprint
-                        # /v = verbose output
-                        $signArgs = @(
-                            'sign',
-                            '/fd', 'SHA256',
-                            '/sha1', $cert.Thumbprint,
-                            '/v',
-                            $packageOutputPath
-                        )
-                        
-                        Write-AppxLog -Message "SignTool command: $signToolPath $($signArgs -join ' ')" -Level 'Debug'
-                        
-                        # Execute SignTool
-                        $signResult = Invoke-ProcessSafely -FilePath $signToolPath `
-                            -ArgumentList $signArgs `
-                            -TimeoutSeconds 300 `
-                            -NoWindow
-                        
-                        if (-not $signResult.Success) {
-                            $errorDetails = "SignTool failed with exit code $($signResult.ExitCode)"
-                            if ($signResult.StandardError) {
-                                $errorDetails += "`nSTDERR: $($signResult.StandardError)"
-                            }
-                            if ($signResult.StandardOutput) {
-                                $errorDetails += "`nSTDOUT: $($signResult.StandardOutput)"
-                            }
-                            throw $errorDetails
-                        }
-                        
-                        Write-AppxLog -Message "Package signed successfully" -Level 'Info'
-                        
-                        # Log signing details from SignTool output
-                        if ($signResult.StandardOutput) {
-                            Write-AppxLog -Message "SignTool output: $($signResult.StandardOutput)" -Level 'Debug'
+                        catch {
+                            Write-AppxLog -Message "Failed to sign package: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Error'
+                            throw "Failed to sign package: $_"
                         }
                     }
-                    catch {
-                        Write-AppxLog -Message "Failed to sign package: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Error'
-                        throw "Failed to sign package: $_"
-                    }
-                }
                 }  # End else (not ZIP archive)
             }
             else {
@@ -1013,7 +822,7 @@ Windows SDK is MANDATORY for reliable APPX backup operations.
                 if ($certInstalled) {
                     Write-Host "`nCertificate installed successfully - package is ready to install`n" -ForegroundColor Green
                     Write-Host "To install the package, run:" -ForegroundColor Cyan
-                    Write-Host "  Add-AppxPackage -Path '$($result.PackageFilePath)'`n" -ForegroundColor White
+                    Write-Host "  Install-AppxBackup -PackagePath '$($result.PackageFilePath)'`n" -ForegroundColor White
                 }
                 else {
                     Write-Host "`nIMPORTANT: Certificate NOT automatically installed`n" -ForegroundColor Yellow
@@ -1021,7 +830,7 @@ Windows SDK is MANDATORY for reliable APPX backup operations.
                     Write-Host "  1. Run PowerShell as Administrator" -ForegroundColor White
                     Write-Host "  2. Import-Certificate -FilePath '$($result.CertificateFilePath)' -CertStoreLocation 'Cert:\LocalMachine\Root'`n" -ForegroundColor White
                     Write-Host "Then install the package:" -ForegroundColor Yellow
-                    Write-Host "  Add-AppxPackage -Path '$($result.PackageFilePath)'`n" -ForegroundColor White
+                    Write-Host "  Install-AppxBackup -PackagePath '$($result.PackageFilePath)'`n" -ForegroundColor White
                 }
             }
             

@@ -44,11 +44,11 @@
     - CertificateCount: Number of certificates included
 
 .NOTES
-    Author: DeltaGa
-    Version: 2.0.1
-    
     This is a critical component of the ZIP-based dependency packaging system.
     It ensures proper structure and metadata for Install-AppxBackup orchestration.
+    
+    Author: DeltaGa
+    Version: 2.0.1
 
 .EXAMPLE
     $result = New-AppxBackupZipArchive -SourceDirectory $tempDir -OutputPath $zipPath -ManifestData $manifest

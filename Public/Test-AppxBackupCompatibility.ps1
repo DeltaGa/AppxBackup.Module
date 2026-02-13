@@ -58,6 +58,9 @@
 .NOTES
     Uses WMI/CIM for system information gathering.
     Checks against current system only (cannot predict future OS).
+
+    Author: DeltaGa
+    Version: 2.0.1
 #>
 
 function Test-AppxBackupCompatibility {
@@ -80,6 +83,29 @@ function Test-AppxBackupCompatibility {
     )
 
     begin {
+        # Helper function for architecture detection
+        function Get-SystemArchitecture {
+            <#
+            .SYNOPSIS
+                Detects the system processor architecture.
+            .DESCRIPTION
+                Determines whether the system is x86, x64, or ARM64.
+                Wrapped in a helper function for testability and to avoid direct environment variable access.
+            #>
+            if ([Environment]::Is64BitOperatingSystem) {
+                # Check for ARM64 vs x64
+                if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 
+                    return 'ARM64' 
+                } 
+                else { 
+                    return 'x64' 
+                }
+            } 
+            else {
+                return 'x86'
+            }
+        }
+
         Write-AppxLog -Message "Testing package compatibility" -Level 'Verbose'
         
         # Get system information
@@ -99,29 +125,6 @@ function Test-AppxBackupCompatibility {
         
         # System architecture - wrapped for testability and consistency
         $systemArch = Get-SystemArchitecture
-    }
-    
-    # Helper function for architecture detection
-    function Get-SystemArchitecture {
-        <#
-        .SYNOPSIS
-            Detects the system processor architecture.
-        .DESCRIPTION
-            Determines whether the system is x86, x64, or ARM64.
-            Wrapped in a helper function for testability and to avoid direct environment variable access.
-        #>
-        if ([Environment]::Is64BitOperatingSystem) {
-            # Check for ARM64 vs x64
-            if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 
-                return 'ARM64' 
-            } 
-            else { 
-                return 'x64' 
-            }
-        } 
-        else {
-            return 'x86'
-        }
     }
 
     process {
@@ -184,17 +187,18 @@ function Test-AppxBackupCompatibility {
             # Check 1: Architecture Compatibility
             Write-Host "`n=== Compatibility Checks ===" -ForegroundColor Cyan
             
-            $archCompatible = switch ($packageInfo.PackageArchitecture) {
-                'neutral' { $true }
-                'x86' { $true } # x86 runs on all architectures
-                'x64' { $systemArch -in @('x64', 'ARM64') }
-                'arm' { $systemArch -in @('ARM', 'ARM64') }
-                'arm64' { $systemArch -eq 'ARM64' }
-                default { $false }
-            }
+            $archResult = Test-AppxArchitectureCompatibility `
+                -PackageArchitecture $packageInfo.PackageArchitecture `
+                -SystemArchitecture $systemArch
+            
+            $archCompatible = $archResult.Compatible
             
             if ($archCompatible) {
-                Write-Host "  [PASS] Architecture: Compatible ($($packageInfo.PackageArchitecture) on $systemArch)" -ForegroundColor Green
+                $archMsg = "Compatible ($($packageInfo.PackageArchitecture) on $systemArch)"
+                if ($archResult.EmulationNote) {
+                    $archMsg += " - $($archResult.EmulationNote)"
+                }
+                Write-Host "  [PASS] Architecture: $archMsg" -ForegroundColor Green
             }
             else {
                 Write-Host "  [X] Architecture: Incompatible ($($packageInfo.PackageArchitecture) cannot run on $systemArch)" -ForegroundColor Red
@@ -481,17 +485,17 @@ function Test-AppxpackArchiveCompatibility {
             # Check 1: Architecture Compatibility (Main Package)
             Write-Host "`n=== Compatibility Checks ===" -ForegroundColor Cyan
             
-            $archCompatible = switch ($mainPkg.Architecture) {
-                'neutral' { $true }
-                'x86' { $true }
-                'x64' { $SystemArch -in @('x64', 'ARM64') }
-                'arm' { $SystemArch -in @('ARM', 'ARM64') }
-                'arm64' { $SystemArch -eq 'ARM64' }
-                default { $false }
-            }
+            $archResult = Test-AppxArchitectureCompatibility `
+                -PackageArchitecture $mainPkg.Architecture `
+                -SystemArchitecture $SystemArch
+            $archCompatible = $archResult.Compatible
             
             if ($archCompatible) {
-                Write-Host "  [PASS] Main Package Architecture: Compatible ($($mainPkg.Architecture) on $SystemArch)" -ForegroundColor Green
+                $archMsg = "Compatible ($($mainPkg.Architecture) on $SystemArch)"
+                if ($archResult.EmulationNote) {
+                    $archMsg += " - $($archResult.EmulationNote)"
+                }
+                Write-Host "  [PASS] Main Package Architecture: $archMsg" -ForegroundColor Green
             }
             else {
                 Write-Host "  [FAIL] Main Package Architecture: Incompatible ($($mainPkg.Architecture) cannot run on $SystemArch)" -ForegroundColor Red
@@ -569,15 +573,24 @@ function Test-AppxpackArchiveCompatibility {
                     $depCompatible = $true
                     $depIssues = [System.Collections.ArrayList]::new()
                     
-                    # Check dependency architecture
-                    $depArchCompatible = switch ($dep.Architecture) {
-                        'neutral' { $true }
-                        'x86' { $true }
-                        'x64' { $SystemArch -in @('x64', 'ARM64') }
-                        'arm' { $SystemArch -in @('ARM', 'ARM64') }
-                        'arm64' { $SystemArch -eq 'ARM64' }
-                        default { $false }
+                    # Normalize architecture - handle numeric codes from manifest
+                    $depArch = $dep.Architecture
+                    if ($depArch -match '^\d+$') {
+                        # Map numeric architecture codes to names
+                        $depArch = switch ([int]$depArch) {
+                            0 { 'x86' }
+                            9 { 'x64' }
+                            11 { 'ARM' }
+                            12 { 'ARM64' }
+                            default { "Unknown($depArch)" }
+                        }
                     }
+                    
+                    # Check dependency architecture
+                    $depArchResult = Test-AppxArchitectureCompatibility `
+                        -PackageArchitecture $depArch `
+                        -SystemArchitecture $SystemArch
+                    $depArchCompatible = $depArchResult.Compatible
                     
                     if (-not $depArchCompatible) {
                         $depCompatible = $false
@@ -607,7 +620,7 @@ function Test-AppxpackArchiveCompatibility {
                     [void]$dependencyCompatibilityResults.Add($depResult)
                     
                     # Display dependency status
-                    $depDisplayName = "$($dep.Name) v$($dep.Version) [$($dep.Architecture)]"
+                    $depDisplayName = "$($dep.Name) v$($dep.Version) [$depArch]"
                     if ($dep.IsOptional) {
                         $depDisplayName += " (Optional)"
                     }

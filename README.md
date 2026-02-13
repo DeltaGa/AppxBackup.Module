@@ -201,6 +201,17 @@ Install-AppxBackup -PackagePath "D:\Backups\WorkMate_7.5.4.0_x64.appx"
 - `New-AppxBackupZipArchive` - ZIP archive creation for dependency packages
 - `New-AppxBackupManifest` - Installation manifest generation
 - `New-AppxDependencyCertificate` - Dependency-specific certificate creation
+- `ConvertTo-HtmlEncodedString` - HTML entity encoding for safe output
+- `Copy-AppxSourceDirectory` - Robust directory copying with multi-tier fallback
+- `Find-AppxSdkTool` - Locate SDK tools in Program Files and registry
+- `Get-AppxMakeAppxErrorAnalysis` - Parse and interpret MakeAppx error messages
+- `Install-AppxCertificateToStore` - Install certificates to certificate stores
+- `Invoke-AppxSignTool` - SignTool wrapper with error handling
+- `Remove-AppxItemWithRetry` - Retry-based item removal with escalation
+- `Resolve-AppxManifestNode` - Resolve XML nodes with namespace fallback
+- `Test-AppxArchitectureCompatibility` - Check CPU architecture compatibility
+- `Test-AppxDiskSpace` - Validate available disk space
+- `Test-AppxPackagingPrerequisites` - Verify SDK tools and system requirements
 
 ---
 
@@ -377,7 +388,18 @@ AppxBackup.Module/
 │   ├── Write-AppxLog.ps1               # Logging system
 │   ├── New-AppxBackupZipArchive.ps1    # ZIP archive creation
 │   ├── New-AppxBackupManifest.ps1      # Installation manifest generation
-│   └── New-AppxDependencyCertificate.ps1 # Dependency certificate creation
+│   ├── New-AppxDependencyCertificate.ps1 # Dependency certificate creation
+│   ├── ConvertTo-HtmlEncodedString.ps1 # HTML encoding
+│   ├── Copy-AppxSourceDirectory.ps1    # Directory copying
+│   ├── Find-AppxSdkTool.ps1            # SDK tool locator
+│   ├── Get-AppxMakeAppxErrorAnalysis.ps1 # MakeAppx error parser
+│   ├── Install-AppxCertificateToStore.ps1 # Certificate installation
+│   ├── Invoke-AppxSignTool.ps1         # SignTool wrapper
+│   ├── Remove-AppxItemWithRetry.ps1    # Retry-based removal
+│   ├── Resolve-AppxManifestNode.ps1    # XML node resolution
+│   ├── Test-AppxArchitectureCompatibility.ps1 # Architecture check
+│   ├── Test-AppxDiskSpace.ps1          # Disk space validation
+│   └── Test-AppxPackagingPrerequisites.ps1 # Prerequisites check
 │
 └── Examples/                 # Usage examples
     └── UsageExamples.md

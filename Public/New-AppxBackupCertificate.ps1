@@ -46,8 +46,12 @@
     Requires -Password parameter.
 
 .PARAMETER ReplaceExisting
-    If specified, removes any existing certificates with the same subject
-    before creating a new one. Use with caution.
+     If specified, removes any existing certificates with the same subject
+     before creating a new one. Use with caution.
+
+.PARAMETER Force
+     If specified, automatically creates duplicate certificates without prompting.
+     Useful for automated/batch operations. Use with -ReplaceExisting to replace instead.
 
 .EXAMPLE
     New-AppxBackupCertificate -Subject "CN=MyApp Publisher" -OutputPath "C:\Certs\MyApp.cer"
@@ -71,7 +75,6 @@
 
 .NOTES
     Requires PowerShell 5.1+ for New-SelfSignedCertificate cmdlet.
-    
     The certificate is created in the specified store and remains there
     after export. Use Remove-Item to delete from store when no longer needed.
     
@@ -115,7 +118,10 @@ function New-AppxBackupCertificate {
         [switch]$ExportPrivateKey,
 
         [Parameter()]
-        [switch]$ReplaceExisting
+        [switch]$ReplaceExisting,
+
+        [Parameter()]
+        [switch]$Force
     )
 
     begin {
@@ -198,7 +204,11 @@ function New-AppxBackupCertificate {
                     Write-Host "`nThis will create an additional certificate with the same subject." -ForegroundColor Yellow
                     Write-Host "Use -ReplaceExisting to remove existing certificates first.`n" -ForegroundColor Yellow
                     
-                    if ($null -eq $Force) {
+                    if ($Force.IsPresent) {
+                        Write-AppxLog -Message "Certificate creation forced despite duplicate subject (Force mode)" -Level 'Info'
+                        Write-Host "[INFO] Continuing with -Force flag (automated mode)..." -ForegroundColor Cyan
+                    }
+                    else {
                         $continue = Read-Host "Continue creating duplicate certificate? (y/N)"
                         if ($continue -ne 'y') {
                             Write-AppxLog -Message "Certificate creation cancelled by user (duplicate subject)" -Level 'Info'

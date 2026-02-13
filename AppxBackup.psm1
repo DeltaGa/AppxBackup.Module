@@ -12,7 +12,7 @@
     Name: AppxBackup
     Author: DeltaGa
     Version: 2.0.1
-    LastModified: 2026-01-13
+    LastModified: 2026-02-13
     
     Requires:
     - PowerShell 5.1+ (7.4+ recommended)
@@ -63,15 +63,33 @@ $script:AppxBackupConfig = @{
 Write-Verbose "Loading private functions..."
 
 $privateFiles = @(
+    # Core infrastructure (no dependencies on other private functions)
     'Get-AppxConfiguration.ps1',
     'Get-AppxDefault.ps1',
-    'Invoke-ProcessSafely.ps1',
     'Write-AppxLog.ps1',
-    'Get-AppxManifestData.ps1',
-    'New-AppxPackageInternal.ps1',
-    'Test-AppxToolAvailability.ps1',
-    'Resolve-AppxDependencies.ps1',
     'ConvertTo-SecureFilePath.ps1',
+    'ConvertTo-HtmlEncodedString.ps1',
+    
+    # Atomic helpers (depend on core infrastructure only)
+    'Find-AppxSdkTool.ps1',
+    'Resolve-AppxManifestNode.ps1',
+    'Test-AppxDiskSpace.ps1',
+    'Test-AppxArchitectureCompatibility.ps1',
+    'Test-AppxPackagingPrerequisites.ps1',
+    'Get-AppxMakeAppxErrorAnalysis.ps1',
+    'Remove-AppxItemWithRetry.ps1',
+    'Install-AppxCertificateToStore.ps1',
+    'Copy-AppxSourceDirectory.ps1',
+    
+    # Mid-level helpers (may depend on atomic helpers)
+    'Invoke-ProcessSafely.ps1',
+    'Invoke-AppxSignTool.ps1',
+    'Test-AppxToolAvailability.ps1',
+    'Get-AppxManifestData.ps1',
+    'Resolve-AppxDependencies.ps1',
+    
+    # High-level helpers (depend on mid-level helpers)
+    'New-AppxPackageInternal.ps1',
     'New-AppxBackupZipArchive.ps1',
     'New-AppxBackupManifest.ps1',
     'New-AppxDependencyCertificate.ps1'

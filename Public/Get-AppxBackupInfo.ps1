@@ -57,6 +57,9 @@
     Does not require the package to be installed.
     Extracts manifest temporarily to analyze structure.
     For .appxpack files, extracts and analyzes AppxBackupManifest.json.
+
+    Author: DeltaGa
+    Version: 2.0.1
 #>
 
 function Get-AppxBackupInfo {

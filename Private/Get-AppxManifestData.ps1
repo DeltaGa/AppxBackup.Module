@@ -155,36 +155,11 @@ function Get-AppxManifestData {
                 }
             }
 
-            # Multi-tier strategy for finding Identity node
-            $identityNode = $null
-            
-            # Strategy 1: XPath with namespace
-            try {
-                $identityNode = $manifest.SelectSingleNode('//appx:Package/appx:Identity', $nsManager)
-            }
-            catch {
-                Write-AppxLog -Message "XPath with namespace failed: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Debug'
-            }
-            
-            # Strategy 2: Direct property access (no namespace)
-            if ($null -eq $identityNode) {
-                try {
-                    $identityNode = $manifest.Package.Identity
-                }
-                catch {
-                    Write-AppxLog -Message "Direct property access failed: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Debug'
-                }
-            }
-            
-            # Strategy 3: Search by element name only (namespace-agnostic)
-            if ($null -eq $identityNode) {
-                try {
-                    $identityNode = $manifest.GetElementsByTagName('Identity') | Select-Object -First 1
-                }
-                catch {
-                    Write-AppxLog -Message "Element search failed: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Debug'
-                }
-            }
+            # Find Identity node using multi-tier fallback
+            $identityNode = Resolve-AppxManifestNode `
+                -Manifest $manifest `
+                -NodeName 'Identity' `
+                -NamespaceManager $nsManager
             
             if ($null -eq $identityNode) {
                 throw "Invalid manifest: Identity element not found using any strategy"
@@ -215,35 +190,10 @@ function Get-AppxManifestData {
             }
 
             # Extract Properties with multi-tier strategy
-            $propertiesNode = $null
-            
-            # Strategy 1: XPath with namespace
-            try {
-                $propertiesNode = $manifest.SelectSingleNode('//appx:Package/appx:Properties', $nsManager)
-            }
-            catch {
-                Write-AppxLog -Message "XPath for Properties failed: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Debug'
-            }
-            
-            # Strategy 2: Direct access
-            if ($null -eq $propertiesNode) {
-                try {
-                    $propertiesNode = $manifest.Package.Properties
-                }
-                catch {
-                    Write-AppxLog -Message "Direct Properties access failed: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Debug'
-                }
-            }
-            
-            # Strategy 3: Element search
-            if ($null -eq $propertiesNode) {
-                try {
-                    $propertiesNode = $manifest.GetElementsByTagName('Properties') | Select-Object -First 1
-                }
-                catch {
-                    Write-AppxLog -Message "Element search for Properties failed: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Debug'
-                }
-            }
+            $propertiesNode = Resolve-AppxManifestNode `
+                -Manifest $manifest `
+                -NodeName 'Properties' `
+                -NamespaceManager $nsManager
             
             # Extract properties if found
             if ($propertiesNode) {
@@ -280,26 +230,11 @@ function Get-AppxManifestData {
             if ($IncludeDependencies.IsPresent) {
                 $dependencies = @()
                 
-                # Multi-tier strategy for Dependencies
-                $dependenciesNode = $null
-                try {
-                    $dependenciesNode = $manifest.SelectSingleNode('//appx:Package/appx:Dependencies', $nsManager)
-                }
-                catch {}
-                
-                if ($null -eq $dependenciesNode) {
-                    try {
-                        $dependenciesNode = $manifest.Package.Dependencies
-                    }
-                    catch {}
-                }
-                
-                if ($null -eq $dependenciesNode) {
-                    try {
-                        $dependenciesNode = $manifest.GetElementsByTagName('Dependencies') | Select-Object -First 1
-                    }
-                    catch {}
-                }
+                # Find Dependencies node with multi-tier strategy
+                $dependenciesNode = Resolve-AppxManifestNode `
+                    -Manifest $manifest `
+                    -NodeName 'Dependencies' `
+                    -NamespaceManager $nsManager
                 
                 if ($dependenciesNode) {
                     # Try to get PackageDependency elements
@@ -333,26 +268,11 @@ function Get-AppxManifestData {
             if ($IncludeCapabilities.IsPresent) {
                 $capabilities = @()
                 
-                # Multi-tier strategy for Capabilities
-                $capabilitiesNode = $null
-                try {
-                    $capabilitiesNode = $manifest.SelectSingleNode('//appx:Package/appx:Capabilities', $nsManager)
-                }
-                catch {}
-                
-                if ($null -eq $capabilitiesNode) {
-                    try {
-                        $capabilitiesNode = $manifest.Package.Capabilities
-                    }
-                    catch {}
-                }
-                
-                if ($null -eq $capabilitiesNode) {
-                    try {
-                        $capabilitiesNode = $manifest.GetElementsByTagName('Capabilities') | Select-Object -First 1
-                    }
-                    catch {}
-                }
+                # Find Capabilities node with multi-tier strategy
+                $capabilitiesNode = Resolve-AppxManifestNode `
+                    -Manifest $manifest `
+                    -NodeName 'Capabilities' `
+                    -NamespaceManager $nsManager
                 
                 if ($capabilitiesNode) {
                     # Get all capability elements
@@ -377,27 +297,11 @@ function Get-AppxManifestData {
 
             # Extract Applications
             try {
-                $appsNode = $null
-                
-                # Multi-tier strategy
-                try {
-                    $appsNode = $manifest.SelectSingleNode('//appx:Package/appx:Applications', $nsManager)
-                }
-                catch {}
-                
-                if ($null -eq $appsNode) {
-                    try {
-                        $appsNode = $manifest.Package.Applications
-                    }
-                    catch {}
-                }
-                
-                if ($null -eq $appsNode) {
-                    try {
-                        $appsNode = $manifest.GetElementsByTagName('Applications') | Select-Object -First 1
-                    }
-                    catch {}
-                }
+                # Find Applications node with multi-tier strategy
+                $appsNode = Resolve-AppxManifestNode `
+                    -Manifest $manifest `
+                    -NodeName 'Applications' `
+                    -NamespaceManager $nsManager
                 
                 if ($appsNode) {
                     $applications = @()
