@@ -105,6 +105,8 @@ Get-Module AppxBackup
 
 ## Workflow Example
 
+For more detailed workflow examples, see [Common Workflows](https://github.com/DeltaGa/AppxBackup.Module/blob/main/Examples/UsageExamples.md#common-workflows) in [Examples/UsageExamples.md](https://github.com/DeltaGa/AppxBackup.Module/blob/main/Examples/UsageExamples.md).
+
 ### Scenario: Backup and Restore WorkMate App
 
 #### Step 1: Backup the Application
@@ -216,6 +218,8 @@ Install-AppxBackup -PackagePath "D:\Backups\WorkMate_7.5.4.0_x64.appx"
 ---
 
 ## Usage Examples
+
+For more detailed usage examples, see [Examples/UsageExamples.md](https://github.com/DeltaGa/AppxBackup.Module/blob/main/Examples/UsageExamples.md).
 
 ### Basic Operations
 

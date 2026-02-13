@@ -1,4 +1,4 @@
-# AppxBackup Module - Usage Examples V2
+# AppxBackup Module - Usage Examples
 
 **Complete console reference for the AppxBackup v2.0.1 module.**
 
