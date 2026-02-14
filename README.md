@@ -223,93 +223,11 @@ Install-AppxBackup -PackagePath "D:\Backups\WorkMate_7.5.4.0_x64.appx"
 
 ## Usage Examples
 
-For more detailed usage examples, see [Examples/UsageExamples.md](https://github.com/DeltaGa/AppxBackup.Module/blob/main/Examples/UsageExamples.md).
+For the backup command: [Backup-AppxPackage](https://github.com/DeltaGa/AppxBackup.Module/blob/main/Examples/UsageExamples.md#2-backup-appxpackage) in [Examples/UsageExamples.md](https://github.com/DeltaGa/AppxBackup.Module/blob/main/Examples/UsageExamples.md).
 
-### Basic Operations
+For the install command: see [Install-AppxPackage](https://github.com/DeltaGa/AppxBackup.Module/blob/main/Examples/UsageExamples.md#8-install-appxbackup) in [Examples/UsageExamples.md](https://github.com/DeltaGa/AppxBackup.Module/blob/main/Examples/UsageExamples.md).
 
-#### 1. Simple Backup
-```powershell
-$app = Get-AppxPackage -Name "Microsoft.WindowsCalculator"
-Backup-AppxPackage -PackagePath $app.InstallLocation -OutputPath "C:\Backups"
-```
-
-#### 2. Backup with Custom Certificate
-```powershell
-Backup-AppxPackage -PackagePath $app.InstallLocation `
-    -OutputPath "C:\Backups" `
-    -CertificateSubject "CN=MyCompany Code Signing" `
-    -CertificatePassword (ConvertTo-SecureString "MyPassword" -AsPlainText -Force)
-```
-
-#### 3. Skip Certificate (Use Existing)
-```powershell
-Backup-AppxPackage -PackagePath $app.InstallLocation `
-    -OutputPath "C:\Backups" `
-    -NoCertificate
-```
-
-### Dependency Operations
-
-#### 4. Backup with Dependencies (ZIP Archive)
-```powershell
-# Creates .appxpack file with main package and all dependencies
-Backup-AppxPackage -PackagePath $app.InstallLocation `
-    -OutputPath "C:\Backups" `
-    -IncludeDependencies
-```
-
-#### 5. Dependency Analysis Only (No Backup)
-```powershell
-# Creates PackageName_Dependencies.json without creating backup
-Backup-AppxPackage -PackagePath $app.InstallLocation `
-    -OutputPath "C:\Backups" `
-    -DependencyReportOnly
-```
-
-### Batch Operations
-
-#### 6. Backup All Apps from a Publisher
-```powershell
-Get-AppxPackage -Publisher "*Microsoft*" | 
-    ForEach-Object {
-        Backup-AppxPackage -PackagePath $_.InstallLocation `
-            -OutputPath "D:\Backups\Microsoft" `
-            -Verbose
-    }
-```
-
-### Installation Operations
-
-#### 7. Install Standalone Package
-```powershell
-Install-AppxBackup -PackagePath "C:\Backups\MyApp.appx"
-```
-
-#### 8. Install ZIP Archive with Dependencies
-```powershell
-Install-AppxBackup -PackagePath "C:\Backups\MyApp.appxpack"
-```
-
-#### 9. Install for Current User Only (No Admin)
-```powershell
-Install-AppxBackup -PackagePath "C:\Backups\MyApp.appx" `
-    -CertStoreLocation CurrentUser
-```
-
-#### 10. Force Reinstall
-```powershell
-Install-AppxBackup -PackagePath "C:\Backups\MyApp.appx" -Force
-```
-
-#### 11. Skip Certificate (Already Trusted)
-```powershell
-Install-AppxBackup -PackagePath "C:\Backups\MyApp.appx" -SkipCertificate
-```
-
-#### 12. Allow Unsigned Packages (Developer Mode)
-```powershell
-Install-AppxBackup -PackagePath "C:\Backups\MyApp.appx" -AllowUnsigned
-```
+For more detailed usage examples, see the full [Examples/UsageExamples.md](https://github.com/DeltaGa/AppxBackup.Module/blob/main/Examples/UsageExamples.md).
 
 ---
 
