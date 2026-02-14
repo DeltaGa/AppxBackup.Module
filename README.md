@@ -2,7 +2,7 @@
 
 [![CodeFactor](https://www.codefactor.io/repository/github/deltaga/appxbackup.module/badge)](https://www.codefactor.io/repository/github/deltaga/appxbackup.module)
 
-[![License](https://opensource.org/licenses/MIT)](https://opensource.org/licenses/MIT)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 # AppxBackup PowerShell Module v2.0.2
 
