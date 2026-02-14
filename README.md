@@ -1,4 +1,6 @@
-<img src="https://raw.githubusercontent.com/DeltaGa/AppxBackup.Module/main/Assets/icon.png" alt="AppxBackup Icon" width="100" height="100">
+<img src="https://raw.githubusercontent.com/DeltaGa/AppxBackup.Module/main/Assets/social_preview_no_star_count.png" alt="AppxBackup Social Preview">
+[![CodeFactor](https://www.codefactor.io/repository/github/deltaga/appxbackup.module)](https://www.codefactor.io/repository/github/deltaga/appxbackup.module)
+[![License](https://opensource.org/licenses/MIT)](https://opensource.org/licenses/MIT)
 
 # AppxBackup PowerShell Module v2.0.2
 
@@ -472,6 +474,42 @@ When reporting issues, include:
 #### Code Quality & Maintainability
 - Extracted 11 new private helper functions to improve code organization and testability.
 - Refactored core functions (Backup-AppxPackage, New-AppxPackageInternal) by removing ~600 lines of duplicate/embedded logic.
+
+#### Testing Infrastructure
+- New `Test-AppxBackupModule.ps1` comprehensive test harness validates all 8 public functions with multiple parameter combinations.
+- Automatic app discovery, full transcript logging, and structured results with pass/fail/skip/error tracking for CI/CD integration.
+
+#### Usage Examples & Documentation
+- Expanded `Examples/UsageExamples.md` with detailed examples for all public functions covering parameter usage and real-world scenarios.
+- Updated README with new Private Functions reference section documenting 11 helper functions and their purposes.
+
+#### Disk Space & Package Validation
+- New `Test-AppxDiskSpace()` function validates disk space and warns about large packages (>1GB or >10k files by default).
+- Configurable size thresholds in PackageConfiguration for environment-specific requirements.
+
+#### Directory Copying & File Operations
+- New `Copy-AppxSourceDirectory()` uses three-tier fallback strategy: Robocopy → Copy-Item → .NET APIs.
+- Handles WindowsApps folder permission issues transparently without user intervention.
+
+#### System Requirements Validation
+- New `Test-AppxPackagingPrerequisites()` validates SDK tools and Windows version before packaging.
+- New `Test-AppxArchitectureCompatibility()` checks CPU architecture compatibility for installation.
+
+#### Certificate & Signing Tools
+- New `Install-AppxCertificateToStore()` manages certificate installation to Windows certificate stores.
+- New `Invoke-AppxSignTool()` provides robust SignTool execution with error handling.
+
+#### Diagnostic Improvements
+- New `Get-AppxMakeAppxErrorAnalysis()` parses MakeAppx error messages for better troubleshooting.
+- New `Find-AppxSdkTool()` locates SDK tools in Program Files and registry paths.
+
+#### XML & Output Processing
+- New `Resolve-AppxManifestNode()` resolves XML nodes with namespace fallback strategies.
+- New `ConvertTo-HtmlEncodedString()` prevents XSS attacks in HTML dependency reports.
+
+#### Installation & Cleanup
+- New `Remove-AppxItemWithRetry()` provides retry-based item removal with escalation for locked files.
+- Improved dependency resolution with metadata-driven installation orchestration.
 
 #### Future Changes (Planned)
   *Nothing explicitly planned for future versions.*
