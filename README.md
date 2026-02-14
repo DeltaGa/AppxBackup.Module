@@ -8,8 +8,8 @@
 ## Windows Application Package Backup & Restoration Toolkit
 
 **Version:** 2.0.2  
-**Release Date:** Febuary 13, 2026  
-**PowerShell:** 5.1+ (7.5+ Recommended)
+**Release Date:** February 13, 2026  
+**PowerShell:** 7.4+
 
 ---
 
@@ -49,7 +49,7 @@ AppxBackup is a **complete 2026 rewrite** of the 2016 original APPX backup scrip
 
 ### Minimum Requirements
 
-- **PowerShell:** 5.1+
+- **PowerShell:** 7.4
 - **OS:** Windows 10 1809 / Windows Server 2019
 - **Windows SDK:** 10.0.19041.0+ (includes MakeAppx, SignTool)
 - **Disk Space:** 100 MB temporary storage

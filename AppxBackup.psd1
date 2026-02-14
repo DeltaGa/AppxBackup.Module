@@ -46,7 +46,7 @@ Key Features:
 '@
 
     # Minimum version of the PowerShell engine required by this module
-    PowerShellVersion = '5.1'
+    PowerShellVersion = '7.4'
 
     # Minimum version of the common language runtime (CLR) required by this module
     # CLRVersion = '4.0'
@@ -128,11 +128,24 @@ Key Features:
         'Private\New-AppxBackupZipArchive.ps1',
         'Private\New-AppxBackupManifest.ps1',
         'Private\New-AppxDependencyCertificate.ps1',
+        'Private\ConvertTo-HtmlEncodedString.ps1',
+        'Private\Copy-AppxSourceDirectory.ps1',
+        'Private\Find-AppxSdkTool.ps1',
+        'Private\Get-AppxMakeAppxErrorAnalysis.ps1',
+        'Private\Install-AppxCertificateToStore.ps1',
+        'Private\Invoke-AppxSignTool.ps1',
+        'Private\Remove-AppxItemWithRetry.ps1',
+        'Private\Resolve-AppxManifestNode.ps1',
+        'Private\Test-AppxArchitectureCompatibility.ps1',
+        'Private\Test-AppxDiskSpace.ps1',
+        'Private\Test-AppxPackagingPrerequisites.ps1',
         'Config\ToolConfiguration.json',
         'Config\WindowsReservedNames.json',
         'Config\PackageConfiguration.json',
         'Config\ModuleDefaults.json',
-        'Config\ZipPackagingConfiguration.json'
+        'Config\ZipPackagingConfiguration.json',
+        'Examples\UsageExamples.md',
+        'Test-AppxBackupModule.ps1'
     )
 
     # Private data to pass to the module specified in RootModule/ModuleToProcess
@@ -169,27 +182,44 @@ Key Features:
 
             # ReleaseNotes of this module
             ReleaseNotes = @'
-Version 2.0.2 (Febuary 13, 2026)
-================================
+Version 2.0.2 (February 13, 2026)
+=================================
 
 RELEASE SUMMARY:
-Complete rewrite of AppxBackup module from 2016 deprecated implementation to modern PowerShell 7+ native capabilities with comprehensive feature set.
+Code quality and maintainability improvements with 11 new private helper functions extracted from core logic.
+Refactored Backup-AppxPackage and New-AppxPackageInternal removing ~600 lines of duplicate/embedded functionality.
+Comprehensive test harness added for all 8 public functions with CI/CD integration support.
 
-MAJOR FEATURES:
-- ZIP-based dependency packaging (.appxpack) with structured metadata and orchestrated installation
-- Manifest parsing with multi-tier fallback strategies for namespace resolution
-- External JSON configuration system (ToolConfiguration, ModuleDefaults, etc.)
-- Automatic certificate installation to Trusted Root store with privilege escalation fallback
-- SDK tool validation with intelligent fallback and comprehensive error diagnostics
-- Signature validation for backup archives using SignTool integration
-- Dynamic tool path resolution returning actual paths instead of boolean values
-- Process safety framework with tool-specific timeouts and output buffer management
+WHAT'S NEW:
+
+Code Organization
+- 11 new private helper functions (ConvertTo-HtmlEncodedString, Copy-AppxSourceDirectory, Find-AppxSdkTool, Get-AppxMakeAppxErrorAnalysis, Install-AppxCertificateToStore, Invoke-AppxSignTool, Remove-AppxItemWithRetry, Resolve-AppxManifestNode, Test-AppxArchitectureCompatibility, Test-AppxDiskSpace, Test-AppxPackagingPrerequisites)
+- Refactored core functions by removing ~600 lines of duplicate logic
+- Improved code testability and reusability
+
+Directory Operations & Validation
+- Three-tier fallback directory copying (Robocopy → Copy-Item → .NET APIs)
+- Disk space validation with configurable thresholds
+- System prerequisite checking (SDK tools, Windows version)
+- CPU architecture compatibility validation
+
+Certificate & Signing
+- Certificate installation to Windows certificate stores
+- Robust SignTool execution wrapper with error handling
+- MakeAppx error message parsing and interpretation
+
+Testing & Documentation
+- Test-AppxBackupModule.ps1 comprehensive test harness for all 8 public functions
+- Automatic app discovery and transcript logging
+- Structured results with pass/fail/skip/error tracking for CI/CD
+- Expanded UsageExamples.md with detailed examples for all functions
+- Updated README with Private Functions reference section
 
 COMPATIBILITY:
 - Windows 10 1809+ (all editions)
 - Windows 11 (all versions)
 - Windows Server 2019+
-- PowerShell 5.1+ (7.4+ recommended)
+- PowerShell 7.4+
 - MSIX Packaging Tool compatible
 - Legacy APPX fully supported
 '@

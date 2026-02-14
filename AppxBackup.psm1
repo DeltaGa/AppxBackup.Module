@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+#Requires -Version 7.4
 
 <#
 .SYNOPSIS
@@ -15,7 +15,7 @@
     LastModified: 2026-02-13
     
     Requires:
-    - PowerShell 5.1+ (7.4+ recommended)
+    - PowerShell 7.4+
     - Windows 10 1809+ or Windows 11
     - Administrator privileges for certificate operations
     

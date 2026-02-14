@@ -70,7 +70,7 @@
 
 .NOTES
     Requires:
-    - PowerShell 5.1+ (7.4+ recommended)
+    - PowerShell 7.4+
     - Administrator privileges for certificate operations
     - Windows 10 1809+ or Windows 11
     

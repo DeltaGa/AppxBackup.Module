@@ -181,7 +181,7 @@ function New-AppxBackupManifest {
         $defaultCompression = Get-AppxDefault 'manifestDefaults.defaultCompression' 'ZipPackagingConfiguration' 'Optimal'
         $requiresElevation = Get-AppxDefault 'manifestDefaults.requiresElevation' 'ZipPackagingConfiguration' $true
         $minOSVersion = Get-AppxDefault 'systemRequirements.minimumOSVersion' 'ZipPackagingConfiguration' '10.0.17763'
-        $minPSVersion = Get-AppxDefault 'systemRequirements.minimumPowerShellVersion' 'ZipPackagingConfiguration' '5.1'
+        $minPSVersion = Get-AppxDefault 'systemRequirements.minimumPowerShellVersion' 'ZipPackagingConfiguration' '7.4'
         
         # Build complete manifest structure
         $manifest = @{

@@ -22,7 +22,7 @@
     "minimumOSVersion": "10.0.17763",
     "minimumOSBuildNumber": 17763,
     "minimumOSName": "Windows 10 1809",
-    "minimumPowerShellVersion": "5.1",
+    "minimumPowerShellVersion": "7.4",
     "recommendedPowerShellVersion": "7.5",
     "description": "Minimum system requirements for .appxpack installation"
   },
