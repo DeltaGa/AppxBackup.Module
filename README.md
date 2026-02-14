@@ -223,7 +223,7 @@ Install-AppxBackup -PackagePath "D:\Backups\WorkMate_7.5.4.0_x64.appx"
 
 ## Usage Examples
 
-For the backup command: [Backup-AppxPackage](https://github.com/DeltaGa/AppxBackup.Module/blob/main/Examples/UsageExamples.md#2-backup-appxpackage) in [Examples/UsageExamples.md](https://github.com/DeltaGa/AppxBackup.Module/blob/main/Examples/UsageExamples.md).
+For the backup command: see [Backup-AppxPackage](https://github.com/DeltaGa/AppxBackup.Module/blob/main/Examples/UsageExamples.md#2-backup-appxpackage) in [Examples/UsageExamples.md](https://github.com/DeltaGa/AppxBackup.Module/blob/main/Examples/UsageExamples.md).
 
 For the install command: see [Install-AppxPackage](https://github.com/DeltaGa/AppxBackup.Module/blob/main/Examples/UsageExamples.md#8-install-appxbackup) in [Examples/UsageExamples.md](https://github.com/DeltaGa/AppxBackup.Module/blob/main/Examples/UsageExamples.md).
 
