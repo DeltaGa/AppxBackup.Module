@@ -1,5 +1,7 @@
-<img src="https://raw.githubusercontent.com/DeltaGa/AppxBackup.Module/main/Assets/social_preview_no_star_count.png" alt="AppxBackup Social Preview">
-[![CodeFactor](https://www.codefactor.io/repository/github/deltaga/appxbackup.module)](https://www.codefactor.io/repository/github/deltaga/appxbackup.module)
+<img src="https://raw.githubusercontent.com/DeltaGa/AppxBackup.Module/main/Assets/social_preview_no_star_count.jpg" alt="AppxBackup Social Preview">
+
+[![CodeFactor](https://www.codefactor.io/repository/github/deltaga/appxbackup.module/badge)](https://www.codefactor.io/repository/github/deltaga/appxbackup.module)
+
 [![License](https://opensource.org/licenses/MIT)](https://opensource.org/licenses/MIT)
 
 # AppxBackup PowerShell Module v2.0.2
