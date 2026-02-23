@@ -13,7 +13,7 @@
   "manifestDefaults": {
     "version": "1.0",
     "formatVersion": "1.0",
-    "createdByString": "AppxBackup v2.0",
+    "createdByString": "AppxBackup v2.0.2",
     "defaultCompression": "Optimal",
     "requiresElevation": true,
     "description": "Default values for AppxBackupManifest.json generation"

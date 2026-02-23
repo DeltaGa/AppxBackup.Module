@@ -71,10 +71,10 @@
     "description": "Windows version detection thresholds"
   },
   "powerShellVersions": {
-    "minimalVersionMajor": 5,
-    "minimalVersionMinor": 1,
+    "minimalVersionMajor": 7,
+    "minimalVersionMinor": 4,
     "recommendedVersionMajor": 7,
-    "recommendedVersionMinor": 4,
+    "recommendedVersionMinor": 5,
     "description": "PowerShell version requirements"
   },
   "windowsSDKVersions": {

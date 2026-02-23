@@ -51,7 +51,7 @@ AppxBackup is a **complete 2026 rewrite** of the 2016 original APPX backup scrip
 
 - **PowerShell:** 7.4
 - **OS:** Windows 10 1809 / Windows Server 2019
-- **Windows SDK:** 10.0.19041.0+ (includes MakeAppx, SignTool)
+- **Windows SDK:** 10.0.18362.0 (includes MakeAppx, SignTool)
 - **Disk Space:** 100 MB temporary storage
 - **Memory:** 512 MB available RAM
 
