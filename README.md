@@ -437,6 +437,12 @@ When reporting issues, include:
 
 ## Citations
 
+### Author
+
+**Tchicdje Kouojip Joram Smith (DeltaGa)**  
+Email: dev.github.tkjoramsmith@outlook.com  
+GitHub: [https://github.com/DeltaGa](https://github.com/DeltaGa)
+
 ### Original Repository
 
 [**mjmeans/Appx-Backup**](https://github.com/mjmeans/Appx-Backup): PowerShell script to backup an installed Windows Store App to an installable Appx file. (2016). *GitHub*.
