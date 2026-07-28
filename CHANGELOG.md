@@ -10,6 +10,36 @@ Releases before 2.1.0 were recorded only in the `ReleaseNotes` field of
 
 ## [Unreleased]
 
+### Added
+
+- `Test-AppxBackupCompatibility -CheckCapabilities` is now implemented. The
+  package's declared capabilities are classified against
+  `Config/CapabilityClassification.json` into restricted (gated by Microsoft, and
+  the entries most likely to make a sideloaded restore behave differently from the
+  original), device (user consent at first use) and general. Restricted
+  capabilities add a warning, and the result object gains
+  `DeclaredCapabilities`, `RestrictedCapabilities`, `DeviceCapabilities` and
+  `CapabilitiesChecked`. The classification lives in configuration so it can track
+  new Windows capabilities without a code change.
+- End-to-end packaging tests under `tests/`, tagged `E2E`. They build a synthetic
+  but valid package through the real Windows SDK MakeAppx — including a negative
+  case asserting that a failed run surfaces the tool's own error text — and are
+  excluded from the default run. Run them with `build.ps1 -Task Test -IncludeE2E`;
+  they skip cleanly without the SDK. CI runs them as a separate step on
+  windows-latest, which ships the SDK.
+
+### Changed
+
+- The analyzer gate is now clean and CI blocks on warnings, not just errors. The
+  22 remaining pre-existing warnings were resolved: genuinely dead variables
+  removed, discarded call results made explicit with `$null`, safe-fallback
+  catches given non-throwing acknowledgements, and the logger's deliberate silent
+  catches suppressed at function level with justification.
+- Removed three private parameters that were accepted and ignored:
+  `-ValidateSchema` (`Get-AppxManifestData`), `-CreateBundle`
+  (`New-AppxPackageInternal`) and `-OutputDirectory` (`New-AppxBackupManifest`).
+  No public surface change.
+
 ## [2.1.0] - 2026-07-27
 
 A correctness release. Six defects shared one root cause: a guard compared the

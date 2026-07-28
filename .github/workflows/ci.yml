@@ -84,6 +84,13 @@ jobs:
         shell: pwsh
         run: pwsh -NoProfile -File ./build.ps1 -Task Test -CI
 
+      # End-to-end packaging tests against the real MakeAppx. The windows-latest
+      # image ships the Windows SDK; if a future image drops it, these tests
+      # skip cleanly instead of failing.
+      - name: Test (end-to-end)
+        shell: pwsh
+        run: pwsh -NoProfile -File ./build.ps1 -Task Test -CI -IncludeE2E
+
       - name: Upload results
         if: always()
         uses: actions/upload-artifact@v4

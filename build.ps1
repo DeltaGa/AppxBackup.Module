@@ -28,6 +28,11 @@
 .PARAMETER OutputPath
     Directory for test and analysis artefacts. Defaults to ./out.
 
+.PARAMETER IncludeE2E
+    Also run the end-to-end tests tagged 'E2E'. These exercise the real Windows
+    SDK MakeAppx and are excluded from the default run because they require the
+    SDK on the machine. Without this switch those tests are skipped entirely.
+
 .EXAMPLE
     .\build.ps1
     Runs the full pipeline locally with human-readable output.
@@ -35,6 +40,10 @@
 .EXAMPLE
     .\build.ps1 -Task Test -CI
     Runs the tests and writes out/TestResults.xml, exiting non-zero on failure.
+
+.EXAMPLE
+    .\build.ps1 -Task Test -IncludeE2E
+    Runs the unit suite plus the end-to-end packaging tests (needs the Windows SDK).
 #>
 
 [CmdletBinding()]
@@ -43,6 +52,8 @@ param(
     [string]$Task = 'All',
 
     [switch]$CI,
+
+    [switch]$IncludeE2E,
 
     [ValidateSet('Error', 'Warning', 'Information', 'None')]
     [string]$FailOn = 'Warning',
@@ -63,6 +74,7 @@ $script:Failures = [System.Collections.Generic.List[string]]::new()
 $script:IsCI = [bool]$CI
 $script:FailOnSeverity = $FailOn
 $script:ArtifactPath = $OutputPath
+$script:IncludeE2ETests = [bool]$IncludeE2E
 
 # Minimum tool versions. Pester 5.5 is the floor for the test syntax used in tests/,
 # which is written to also run unchanged on Pester 6.
@@ -198,6 +210,11 @@ function Invoke-TestTask {
     $config.Run.Path = $testPath
     $config.Run.PassThru = $true
     $config.Output.Verbosity = if ($script:IsCI) { 'Detailed' } else { 'Normal' }
+
+    # End-to-end tests (real MakeAppx) run only when explicitly requested.
+    if (-not $script:IncludeE2ETests) {
+        $config.Filter.ExcludeTag = 'E2E'
+    }
 
     if ($script:IsCI) {
         $null = New-Item -ItemType Directory -Path $script:ArtifactPath -Force

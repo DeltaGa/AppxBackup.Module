@@ -356,6 +356,9 @@ pass and a CI pass mean the same thing.
 
 # As CI runs it: NUnit + CSV artefacts under out/, and a meaningful exit code
 .\build.ps1 -Task All -CI -FailOn Error
+
+# Include the end-to-end packaging tests (requires the Windows SDK)
+.\build.ps1 -Task Test -IncludeE2E
 ```
 
 First run needs the tooling:
@@ -365,11 +368,18 @@ Install-Module Pester -MinimumVersion 5.5.0 -Scope CurrentUser -Force -SkipPubli
 Install-Module PSScriptAnalyzer -MinimumVersion 1.21.0 -Scope CurrentUser -Force
 ```
 
-The 71 tests in `tests/` concentrate on the module's trust boundaries — path
+The 73 tests in `tests/` concentrate on the module's trust boundaries — path
 validation, external process execution, SDK discovery, configuration loading, and
 the agreement between the manifest, the loader and the files on disk. Each defect
 fixed in 2.1.0 has a regression test. The suite is written in the subset shared by
 Pester 5 and 6.
+
+A second group of tests tagged `E2E` packages a synthetic source directory through
+the real Windows SDK MakeAppx — including a negative case asserting that a failed
+run surfaces the tool's own error text. These are excluded from the default run
+because they need the SDK; run them with `.\build.ps1 -Task Test -IncludeE2E` or
+`Invoke-Pester -Path ./tests -TagFilter 'E2E'`. They skip cleanly on machines
+without the SDK.
 
 `PSScriptAnalyzerSettings.psd1` is deliberately scoped to correctness rules, and
 every exclusion states why the rule does not apply here, so a finding is always
@@ -379,15 +389,14 @@ worth acting on. CI blocks on errors and reports warnings without failing.
 
 Known work that is tracked but not yet done:
 
-- Clear the 35 pre-existing analyzer warnings (unused variables and parameters,
-  and the logger's intentionally silent catch blocks), then tighten CI to
-  `-FailOn Warning`.
-- Either implement or remove four parameters that are accepted and ignored:
-  `-CheckCapabilities` on `Test-AppxBackupCompatibility` (the only public one),
-  and `-ValidateSchema`, `-CreateBundle` and `-OutputDirectory` on private helpers.
-- Add coverage for `Backup-AppxPackage` and `Install-AppxBackup` end to end. These
-  need the Windows SDK and a real package, so they belong behind a CI tag rather
-  than in the default run.
+- Broaden the `E2E` coverage beyond `New-AppxPackageInternal` to
+  `Backup-AppxPackage` and `Install-AppxBackup`. Those two additionally need a
+  signing certificate and (for install) the Appx deployment service, which is not
+  available on every host, so they will need their own tags and skip conditions.
+- PSScriptAnalyzer 1.25 raises an internal `NullReferenceException` while
+  inspecting `AppxBackup.psm1` through an absolute path. Analysis still completes
+  with the full finding set, and `build.ps1` reports the condition rather than
+  failing on it. Revisit when a fixed analyzer version ships.
 
 ### Test-AppxBackupModule.ps1
 
