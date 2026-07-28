@@ -30,16 +30,17 @@ function Test-AppxToolAvailability {
         [switch]$UpdateCache
     )
 
-    begin {
-        # Check cache first (unless UpdateCache is specified)
-        if (-not $UpdateCache.IsPresent -and $script:ToolCache.ContainsKey($ToolName)) {
-            Write-AppxLog -Message "Tool path retrieved from cache: $ToolName" -Level 'Debug'
-            return $script:ToolCache[$ToolName]
-        }
-    }
-
     process {
         try {
+            # Cache check lives here, not in begin{}. 'return' in a begin block only
+            # exits that block - it does not skip process{} - so the cached value was
+            # emitted and then the full search ran and emitted a second value, making
+            # every cache hit return a two-element array instead of [string].
+            if (-not $UpdateCache.IsPresent -and $script:ToolCache.ContainsKey($ToolName)) {
+                Write-AppxLog -Message "Tool path retrieved from cache: $ToolName" -Level 'Debug'
+                return $script:ToolCache[$ToolName]
+            }
+
             $toolPath = $null
 
             # Special handling for PowerShell-native certificate tools

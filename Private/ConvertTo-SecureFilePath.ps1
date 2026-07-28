@@ -135,11 +135,15 @@ function ConvertTo-SecureFilePath {
                 throw "Path exceeds maximum length of $maxPathLength characters: $($cleanPath.Length)"
             }
 
-            # Existence validation
-            if ($MustExist.IsPresent) {
-                $exists = Test-Path -LiteralPath $cleanPath
-                
-                if ($null -eq $exists) {
+            # Existence validation.
+            # -CreateIfMissing is honoured independently of -MustExist: callers such as
+            # Backup-AppxPackage pass -CreateIfMissing alone to materialise an output
+            # directory, so gating creation behind -MustExist would silently skip it.
+            if ($MustExist.IsPresent -or $CreateIfMissing.IsPresent) {
+                # Test-Path returns [bool] and is never $null, so this must be a
+                # falsiness test. Comparing against $null made both the "create" and
+                # the "does not exist" branches unreachable.
+                if (-not (Test-Path -LiteralPath $cleanPath)) {
                     if ($CreateIfMissing.IsPresent) {
                         # Create based on PathType
                         switch ($PathType) {
@@ -171,7 +175,7 @@ function ConvertTo-SecureFilePath {
                     if ($PathType -ne 'Any') {
                         $item = Get-Item -LiteralPath $cleanPath
                         $actualType = if ($item.PSIsContainer) { 'Directory' } else { 'File' }
-                        
+
                         if ($actualType -ne $PathType) {
                             throw "Path exists but is not a $PathType : $cleanPath (found $actualType)"
                         }

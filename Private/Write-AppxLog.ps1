@@ -50,24 +50,12 @@ function Write-AppxLog {
         [switch]$NoFile
     )
 
-    begin {
-        # Determine if we should write based on preference variables
-        $shouldWrite = switch ($Level) {
-            'Debug'     { $DebugPreference -ne 'SilentlyContinue' }
-            'Verbose'   { $VerbosePreference -ne 'SilentlyContinue' }
-            'Info'      { $true }
-            'Warning'   { $WarningPreference -ne 'SilentlyContinue' }
-            'Error'     { $ErrorActionPreference -ne 'SilentlyContinue' }
-            'Critical'  { $true }
-            default     { $true }
-        }
-
-        if ($null -eq $shouldWrite) {
-            return
-        }
-    }
-
     process {
+        # Note: no preference-based gate here by design. Console output is routed
+        # through Write-Debug/Write-Verbose/Write-Warning below, which already honour
+        # the corresponding preference variables, while the log FILE deliberately
+        # records every level so post-mortem diagnostics stay complete.
+        # A former guard here compared a [bool] against $null and never fired.
         try {
             # Build structured log entry
             $timestamp = [DateTime]::Now.ToString('yyyy-MM-dd HH:mm:ss.fff')
@@ -128,7 +116,9 @@ function Write-AppxLog {
                 # Ensure log directory exists
                 $logDir = Split-Path -Path $script:LogPath -Parent
                 
-                if ($null -eq $logDir) {
+                # Split-Path -Parent yields an empty string (not $null) for a bare
+                # filename, so test for emptiness rather than for $null.
+                if ([string]::IsNullOrEmpty($logDir)) {
                     # No parent directory means script:LogPath is just a filename
                     # This shouldn't happen but handle gracefully
                     return

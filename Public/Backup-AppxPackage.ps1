@@ -153,6 +153,14 @@ function Backup-AppxPackage {
     }
 
     process {
+        # Initialised per pipeline item so the catch block and the result object never
+        # touch an unset variable. Under Set-StrictMode -Version Latest that would raise
+        # "variable cannot be retrieved", replacing the genuine failure with a misleading
+        # one - an early throw (for example missing SDK tools) was reported as an
+        # unset-variable error instead of the real cause.
+        $packageOutputPath = $null
+        $certInstalled = $false
+
         try {
             # Stage 1: Validation
             $progressStage++
@@ -863,11 +871,12 @@ Windows SDK is MANDATORY for reliable APPX backup operations.
             Write-AppxLog -Message "Backup failed: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Error'
             Write-AppxLog -Message "Stack trace: $($_.ScriptStackTrace)" -Level 'Debug'
             
-            # Cleanup on failure
-            if (Test-Path -LiteralPath $packageOutputPath) {
+            # Cleanup on failure. Guarded because a failure before the output path is
+            # computed would otherwise mask the original error.
+            if ($packageOutputPath -and (Test-Path -LiteralPath $packageOutputPath)) {
                 Remove-Item -LiteralPath $packageOutputPath -Force -ErrorAction SilentlyContinue
             }
-            
+
             throw
         }
     }

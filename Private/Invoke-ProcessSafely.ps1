@@ -241,8 +241,10 @@ function Invoke-ProcessSafely {
             # Start process
             $startTime = [DateTime]::Now
             $started = $process.Start()
-            
-            if ($null -eq $started) {
+
+            # Process.Start() returns [bool]; it is never $null, so this must be a
+            # falsiness test. Comparing against $null here silently disabled the check.
+            if (-not $started) {
                 throw "Failed to start process: $FilePath"
             }
 
@@ -255,8 +257,12 @@ function Invoke-ProcessSafely {
             # Wait with timeout
             $timeoutMs = $TimeoutSeconds * 1000
             $completed = $process.WaitForExit($timeoutMs)
-            
-            if ($null -eq $completed) {
+
+            # WaitForExit([int]) returns [bool] - $false on timeout, never $null.
+            # Comparing against $null made this branch unreachable, so a hung tool was
+            # never killed and execution fell through to the unbounded WaitForExit()
+            # below, blocking the caller forever. This must be a falsiness test.
+            if (-not $completed) {
                 Write-AppxLog -Message "Process exceeded timeout of $TimeoutSeconds seconds" -Level 'Warning'
                 
                 # Forceful termination
@@ -272,7 +278,9 @@ function Invoke-ProcessSafely {
                 throw "Process timed out after $TimeoutSeconds seconds: $FilePath"
             }
             
-            # Wait for async events to complete (critical!)
+            # Only reached when the process exited within the timeout. The parameterless
+            # overload is what flushes the redirected stdout/stderr readers, so it must
+            # run after the timed wait succeeds - and never on the timeout path.
             $process.WaitForExit()
             Start-Sleep -Milliseconds $AsyncWaitMilliseconds # Configurable wait for event handlers to finish
             
