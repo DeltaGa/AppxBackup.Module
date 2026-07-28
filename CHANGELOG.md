@@ -31,6 +31,20 @@ tests, a static-analysis configuration, and CI.
   process tree.
 - **Failed process starts went undetected.** `Process.Start()` returns `[bool]`;
   the same `$null` comparison meant a failure to start was never caught.
+- **Almost all captured tool output was discarded.** Output was collected with
+  `Register-ObjectEvent -Action`. PowerShell dispatches those handlers on its own
+  event loop, which is not pumped while the pipeline is blocked in `WaitForExit`,
+  so most lines never arrived. Measured against MakeAppx, which emits 36 lines:
+  one line survived. `Get-AppxMakeAppxErrorAnalysis` was therefore parsing the
+  MakeAppx banner rather than the error, and a failed packaging run produced no
+  usable diagnosis. Both streams are now read with `StreamReader.ReadToEndAsync`,
+  started before the wait so neither pipe can fill while the other is being read.
+  Verified end to end against the real MakeAppx: the wrapper now captures the same
+  17 non-empty lines as a direct invocation, including the specific manifest
+  validation error, and a package builds successfully through the module.
+  This also removes a fixed 1-2 second sleep that existed only to give the event
+  handlers time to drain: a `cmd` invocation went from 1.05s to 0.06s, and the
+  process test file from 14.5s to 6.1s.
 - **Captured tool output was corrupted.** The stdout and stderr buffers were built
   with `[StringBuilder]::new($capacity)` where `$capacity` came from
   `ConvertFrom-Json` and is therefore `Int64`. `StringBuilder` offers
@@ -72,10 +86,15 @@ tests, a static-analysis configuration, and CI.
   advertising it made the module look installable where it is not.
 - `AppxBackup.psd1` and `Private/Write-AppxLog.ps1` contain non-ASCII characters
   and now carry a UTF-8 BOM, so ANSI-defaulting hosts read them correctly.
+- `Invoke-ProcessSafely` no longer accepts `-AsyncWaitMilliseconds`. It configured
+  the sleep that compensated for the event-handler drain, which no longer exists.
+  No caller passed it. The `asyncWaitMilliseconds` keys in
+  `Config/ToolConfiguration.json` are retained so existing configuration files stay
+  valid, but they are no longer read.
 
 ### Added
 
-- `tests/` — 71 Pester tests covering path validation, external process execution,
+- `tests/` — 73 Pester tests covering path validation, external process execution,
   SDK discovery, configuration loading, and the manifest/loader/disk agreement that
   defines the public surface. Written in the subset shared by Pester 5 and 6. Every
   defect listed above has a regression test that fails against the old behaviour.

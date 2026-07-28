@@ -115,6 +115,35 @@ Describe 'Invoke-ProcessSafely' {
             }
         }
 
+        It 'captures every line of a multi-line stream' {
+            # Regression: output was collected through Register-ObjectEvent -Action.
+            # PowerShell dispatches those handlers on its own event loop, which is not
+            # pumped while the pipeline blocks in WaitForExit, so most output was lost.
+            # Against MakeAppx, which emits 36 lines, exactly one line survived and
+            # MakeAppx error analysis was left parsing a banner instead of the error.
+            InModuleScope AppxBackup -Parameters @{ Exe = $script:Cmd } {
+                param($Exe)
+                $result = Invoke-ProcessSafely -FilePath $Exe `
+                    -ArgumentList @('/c', 'for /L %i in (1,1,200) do @echo line%i') -NoWindow
+
+                $lines = @($result.StandardOutput -split "`r?`n" | Where-Object { $_.Trim() })
+                $lines.Count | Should -Be 200
+                $lines[0].Trim() | Should -Be 'line1'
+                $lines[-1].Trim() | Should -Be 'line200'
+            }
+        }
+
+        It 'captures output that arrives in a burst before the process exits quickly' {
+            InModuleScope AppxBackup -Parameters @{ Exe = $script:Cmd } {
+                param($Exe)
+                $result = Invoke-ProcessSafely -FilePath $Exe `
+                    -ArgumentList @('/c', 'for /L %i in (1,1,50) do @echo burst%i') -NoWindow
+
+                @($result.StandardOutput -split "`r?`n" | Where-Object { $_ -match 'burst' }).Count |
+                    Should -Be 50
+            }
+        }
+
         It 'captures standard error separately from standard output' {
             InModuleScope AppxBackup -Parameters @{ Exe = $script:Cmd } {
                 param($Exe)

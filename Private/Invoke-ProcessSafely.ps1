@@ -8,9 +8,8 @@
     Key improvements:
     - Asynchronous I/O to prevent deadlocks
     - Configurable timeout with forceful termination
-    - Tool-specific timeout and async wait defaults (MakeAppx, SignTool, Robocopy)
+    - Tool-specific timeout defaults (MakeAppx, SignTool, Robocopy)
     - Proper exit code checking with tool-specific interpretation
-    - Output buffer size limits (10MB per stream) to prevent memory exhaustion
     - Separated stdout/stderr streams
     - Structured result object
     - Resource cleanup guarantees
@@ -30,14 +29,6 @@
     - SignTool: 60 seconds (1 minute)
     - Robocopy: 300 seconds (5 minutes)
     - Default: 3600 seconds (1 hour)
-
-.PARAMETER AsyncWaitMilliseconds
-    Time to wait for async event handlers to complete after process exits.
-    If not specified, uses tool-specific defaults:
-    - MakeAppx: 2000ms (large output)
-    - SignTool: 1000ms (small output)
-    - Robocopy: 1500ms (moderate output)
-    - Default: 1000ms
 
 .PARAMETER WorkingDirectory
     Working directory for the process. Defaults to current directory.
@@ -76,10 +67,6 @@ function Invoke-ProcessSafely {
         [Parameter()]
         [ValidateRange(1, 86400)]
         [int]$TimeoutSeconds,
-
-        [Parameter()]
-        [ValidateRange(100, 60000)]
-        [int]$AsyncWaitMilliseconds,
 
         [Parameter()]
         [string]$WorkingDirectory = $PWD.Path,
@@ -149,21 +136,8 @@ function Invoke-ProcessSafely {
             }
         }
         
-        if (-not $PSBoundParameters.ContainsKey('AsyncWaitMilliseconds')) {
-            $toolSpecificConfig = $toolConfig.toolConfigurations.PSObject.Properties |
-                Where-Object { $_.Name -eq $toolName } |
-                Select-Object -First 1
-            
-            if ($toolSpecificConfig) {
-                $AsyncWaitMilliseconds = $toolSpecificConfig.Value.asyncWaitMilliseconds
-            }
-            else {
-                $AsyncWaitMilliseconds = $toolConfig.defaultConfiguration.asyncWaitMilliseconds
-            }
-        }
-        
         Write-AppxLog -Message "Invoking process: $FilePath" -Level 'Verbose'
-        Write-AppxLog -Message "Timeout: $TimeoutSeconds seconds, Async wait: $AsyncWaitMilliseconds ms" -Level 'Debug'
+        Write-AppxLog -Message "Timeout: $TimeoutSeconds seconds" -Level 'Debug'
         
         # Validate executable exists
         if (-not (Test-Path -LiteralPath $FilePath -PathType Leaf)) {
@@ -178,9 +152,7 @@ function Invoke-ProcessSafely {
 
     process {
         $process = $null
-        $stdoutEvent = $null
-        $stderrEvent = $null
-        
+
         try {
             # Configure process start info
             $psi = [System.Diagnostics.ProcessStartInfo]::new()
@@ -213,36 +185,6 @@ function Invoke-ProcessSafely {
             
             # StringBuilder for async output collection (thread-safe)
             # Load initial capacities from configuration for optimal memory allocation
-            # The [int] casts are load-bearing. ConvertFrom-Json yields Int64, and
-            # StringBuilder offers (Int32 capacity) and (String value) but no Int64
-            # overload, so PowerShell bound the string one: every capture buffer was
-            # pre-seeded with its own capacity as text ("16384"/"4096") and that prefix
-            # was reported as tool output, corrupting all downstream error analysis.
-            $stdoutCapacity = [int](Get-AppxDefault 'bufferSizes.stdoutBuilderInitialCapacity' -Fallback 16384)
-            $stderrCapacity = [int](Get-AppxDefault 'bufferSizes.stderrBuilderInitialCapacity' -Fallback 4096)
-
-            $stdoutBuilder = [System.Text.StringBuilder]::new($stdoutCapacity)
-            $stderrBuilder = [System.Text.StringBuilder]::new($stderrCapacity)
-            
-            # Register async output handlers to prevent deadlock
-            $stdoutEvent = Register-ObjectEvent -InputObject $process `
-                -EventName OutputDataReceived `
-                -Action {
-                    if ($EventArgs.Data) {
-                        [void]$Event.MessageData.AppendLine($EventArgs.Data)
-                    }
-                } `
-                -MessageData $stdoutBuilder
-                
-            $stderrEvent = Register-ObjectEvent -InputObject $process `
-                -EventName ErrorDataReceived `
-                -Action {
-                    if ($EventArgs.Data) {
-                        [void]$Event.MessageData.AppendLine($EventArgs.Data)
-                    }
-                } `
-                -MessageData $stderrBuilder
-            
             # Start process
             $startTime = [DateTime]::Now
             $started = $process.Start()
@@ -253,10 +195,19 @@ function Invoke-ProcessSafely {
                 throw "Failed to start process: $FilePath"
             }
 
-            # Begin async read operations
-            $process.BeginOutputReadLine()
-            $process.BeginErrorReadLine()
-            
+            # Read both streams with the .NET async readers rather than
+            # Register-ObjectEvent. PowerShell dispatches -Action handlers on its own
+            # event loop, which only pumps while the pipeline is idle; during
+            # WaitForExit the queue is not drained and output was lost. Measured
+            # against MakeAppx, which emits 36 lines: exactly one line survived.
+            # Get-AppxMakeAppxErrorAnalysis therefore parsed a banner instead of the
+            # actual error, so packaging failures produced no usable diagnosis.
+            #
+            # Starting both reads before waiting is also what keeps this deadlock-free:
+            # neither pipe can fill up while we block on the other.
+            $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+            $stderrTask = $process.StandardError.ReadToEndAsync()
+
             Write-AppxLog -Message "Process started: PID $($process.Id)" -Level 'Debug'
             
             # Wait with timeout
@@ -287,37 +238,33 @@ function Invoke-ProcessSafely {
             # overload is what flushes the redirected stdout/stderr readers, so it must
             # run after the timed wait succeeds - and never on the timeout path.
             $process.WaitForExit()
-            Start-Sleep -Milliseconds $AsyncWaitMilliseconds # Configurable wait for event handlers to finish
-            
-            # Collect results - Convert StringBuilder to string IMMEDIATELY
+
             $exitCode = $process.ExitCode
             $duration = [DateTime]::Now - $startTime
-            
-            # Convert StringBuilders to strings - CRITICAL: Do this atomically
+
+            # The reads complete once the child closes its stream handles, which has
+            # already happened by the time WaitForExit() returns. GetAwaiter() is used
+            # rather than .Result so a fault surfaces as the original exception instead
+            # of an AggregateException.
             try {
-                $standardOutput = if ($stdoutBuilder.Length -gt 0) { 
-                    $stdoutBuilder.ToString()
-                } else { 
-                    '' 
-                }
+                $standardOutput = $stdoutTask.GetAwaiter().GetResult()
             }
             catch {
-                Write-AppxLog -Message "Failed to convert stdout builder: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Warning'
+                Write-AppxLog -Message "Failed to read standard output: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Warning'
                 $standardOutput = ''
             }
-            
+
             try {
-                $standardError = if ($stderrBuilder.Length -gt 0) { 
-                    $stderrBuilder.ToString()
-                } else { 
-                    '' 
-                }
+                $standardError = $stderrTask.GetAwaiter().GetResult()
             }
             catch {
-                Write-AppxLog -Message "Failed to convert stderr builder: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Warning'
+                Write-AppxLog -Message "Failed to read standard error: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Warning'
                 $standardError = ''
             }
-            
+
+            if ($null -eq $standardOutput) { $standardOutput = '' }
+            if ($null -eq $standardError) { $standardError = '' }
+
             Write-AppxLog -Message "Process completed: Exit code $exitCode in $($duration.TotalSeconds.ToString('F2'))s" -Level 'Debug'
             Write-AppxLog -Message "Captured STDOUT: $($standardOutput.Length) chars, STDERR: $($standardError.Length) chars" -Level 'Debug'
             
@@ -466,12 +413,6 @@ function Invoke-ProcessSafely {
         }
         finally {
             # Guaranteed cleanup (even on exceptions)
-            if ($stdoutEvent) {
-                Unregister-Event -SourceIdentifier $stdoutEvent.Name -ErrorAction SilentlyContinue
-            }
-            if ($stderrEvent) {
-                Unregister-Event -SourceIdentifier $stderrEvent.Name -ErrorAction SilentlyContinue
-            }
             if ($process) {
                 $process.Dispose()
             }
