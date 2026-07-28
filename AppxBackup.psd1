@@ -193,15 +193,17 @@ Key Features:
 
             # ReleaseNotes of this module
             ReleaseNotes = @'
-Version 2.1.0 (July 27, 2026)
+Version 2.1.0 (July 28, 2026)
 =============================
 
 RELEASE SUMMARY:
 Correctness release. Six defects are fixed in which a guard compared a boolean
 result against $null and therefore never ran, including one that could hang a
-backup indefinitely and one that corrupted every captured tool output. The
-module gains its first automated test suite, a static-analysis configuration
-and a CI pipeline.
+backup indefinitely and two that corrupted or discarded captured tool output.
+The module gains its first automated test suite, a static-analysis gate that
+now runs clean, end-to-end packaging tests against the real MakeAppx, and a CI
+pipeline. Test-AppxBackupCompatibility -CheckCapabilities, previously accepted
+but ignored, is now implemented.
 
 FIXED:
 
@@ -213,6 +215,12 @@ Process execution
   invoked with a 1800 second timeout. Verified: a 3s timeout previously ran a
   30s process to completion and reported success, and now aborts at 3s.
 - Invoke-ProcessSafely never detected a failed Process.Start().
+- Invoke-ProcessSafely discarded almost all captured tool output. Output was
+  collected through PowerShell eventing, whose handlers are not pumped while
+  the pipeline blocks in WaitForExit; against MakeAppx, which emits 36 lines,
+  one line survived, so packaging failures produced no usable diagnosis. Both
+  streams are now read with StreamReader.ReadToEndAsync. This also removed a
+  fixed 1-2 second sleep per invocation.
 - Captured stdout and stderr were prefixed with the capture buffer's own
   capacity ("16384" and "4096"). The buffers were built from an Int64 supplied
   by ConvertFrom-Json, and StringBuilder has (Int32) and (String) overloads but
@@ -238,6 +246,28 @@ Diagnostics
 - Write-AppxLog: removed a dead preference guard and corrected an empty-string
   check against $null.
 
+ADDED:
+
+- Test-AppxBackupCompatibility -CheckCapabilities is now implemented. Declared
+  capabilities are classified against Config/CapabilityClassification.json into
+  restricted (Microsoft-gated), device (consent at first use) and general, with
+  restricted entries producing a warning. The classification lives in
+  configuration so it can track new Windows capabilities without a code change.
+- tests/: 73 Pester tests covering path validation, process execution, tool
+  discovery, configuration loading and the manifest/loader/disk contract.
+  Written in the Pester 5 and 6 compatible subset. Every defect above has a
+  regression test.
+- End-to-end packaging tests tagged E2E that build a synthetic package through
+  the real Windows SDK MakeAppx, including a negative case asserting the
+  tool's own error text surfaces. Excluded from the default run; opt in with
+  build.ps1 -Task Test -IncludeE2E.
+- build.ps1: single Build/Analyze/Test entry point shared by contributors
+  and CI, with NUnit and CSV output under -CI.
+- PSScriptAnalyzerSettings.psd1: correctness-scoped rule set, now reporting
+  zero findings; CI blocks on any new warning or error.
+- .github/workflows/ci.yml: Windows CI across PowerShell 7.4 and 7.5.
+- .gitignore and CHANGELOG.md.
+
 CHANGED:
 
 - Aliases are exported module members instead of being created with
@@ -251,19 +281,13 @@ CHANGED:
   PowerShell 5.1 and could never satisfy PowerShellVersion 7.4.
 - AppxBackup.psd1 and Write-AppxLog.ps1 contain non-ASCII characters and now
   carry a UTF-8 BOM so they are read correctly by ANSI-defaulting hosts.
-
-ADDED:
-
-- tests/: 71 Pester tests covering path validation, process execution, tool
-  discovery, configuration loading and the manifest/loader/disk contract.
-  Written in the Pester 5 and 6 compatible subset. Every defect above has a
-  regression test.
-- build.ps1: single Build/Analyze/Test entry point shared by contributors
-  and CI, with NUnit and CSV output under -CI.
-- PSScriptAnalyzerSettings.psd1: correctness-scoped rule set; each exclusion
-  documents why the rule does not apply to this project.
-- .github/workflows/ci.yml: Windows CI across PowerShell 7.4 and 7.5.
-- .gitignore and CHANGELOG.md.
+- Invoke-ProcessSafely no longer accepts -AsyncWaitMilliseconds. It configured
+  the sleep that compensated for the event-handler drain, which no longer
+  exists. No caller passed it.
+- Removed three private parameters that were accepted and ignored:
+  -ValidateSchema (Get-AppxManifestData), -CreateBundle
+  (New-AppxPackageInternal) and -OutputDirectory (New-AppxBackupManifest).
+  No public surface change.
 
 COMPATIBILITY:
 - Public contract unchanged: the same 8 functions and 4 aliases.

@@ -10,37 +10,7 @@ Releases before 2.1.0 were recorded only in the `ReleaseNotes` field of
 
 ## [Unreleased]
 
-### Added
-
-- `Test-AppxBackupCompatibility -CheckCapabilities` is now implemented. The
-  package's declared capabilities are classified against
-  `Config/CapabilityClassification.json` into restricted (gated by Microsoft, and
-  the entries most likely to make a sideloaded restore behave differently from the
-  original), device (user consent at first use) and general. Restricted
-  capabilities add a warning, and the result object gains
-  `DeclaredCapabilities`, `RestrictedCapabilities`, `DeviceCapabilities` and
-  `CapabilitiesChecked`. The classification lives in configuration so it can track
-  new Windows capabilities without a code change.
-- End-to-end packaging tests under `tests/`, tagged `E2E`. They build a synthetic
-  but valid package through the real Windows SDK MakeAppx — including a negative
-  case asserting that a failed run surfaces the tool's own error text — and are
-  excluded from the default run. Run them with `build.ps1 -Task Test -IncludeE2E`;
-  they skip cleanly without the SDK. CI runs them as a separate step on
-  windows-latest, which ships the SDK.
-
-### Changed
-
-- The analyzer gate is now clean and CI blocks on warnings, not just errors. The
-  22 remaining pre-existing warnings were resolved: genuinely dead variables
-  removed, discarded call results made explicit with `$null`, safe-fallback
-  catches given non-throwing acknowledgements, and the logger's deliberate silent
-  catches suppressed at function level with justification.
-- Removed three private parameters that were accepted and ignored:
-  `-ValidateSchema` (`Get-AppxManifestData`), `-CreateBundle`
-  (`New-AppxPackageInternal`) and `-OutputDirectory` (`New-AppxBackupManifest`).
-  No public surface change.
-
-## [2.1.0] - 2026-07-27
+## [2.1.0] - 2026-07-28
 
 A correctness release. Six defects shared one root cause: a guard compared the
 result of a boolean-returning call against `$null`. Because `[bool]` is never
@@ -124,10 +94,25 @@ tests, a static-analysis configuration, and CI.
 
 ### Added
 
+- `Test-AppxBackupCompatibility -CheckCapabilities` is now implemented. The
+  package's declared capabilities are classified against
+  `Config/CapabilityClassification.json` into restricted (gated by Microsoft, and
+  the entries most likely to make a sideloaded restore behave differently from the
+  original), device (user consent at first use) and general. Restricted
+  capabilities add a warning, and the result object gains
+  `DeclaredCapabilities`, `RestrictedCapabilities`, `DeviceCapabilities` and
+  `CapabilitiesChecked`. The classification lives in configuration so it can track
+  new Windows capabilities without a code change.
 - `tests/` — 73 Pester tests covering path validation, external process execution,
   SDK discovery, configuration loading, and the manifest/loader/disk agreement that
   defines the public surface. Written in the subset shared by Pester 5 and 6. Every
   defect listed above has a regression test that fails against the old behaviour.
+- End-to-end packaging tests under `tests/`, tagged `E2E`. They build a synthetic
+  but valid package through the real Windows SDK MakeAppx — including a negative
+  case asserting that a failed run surfaces the tool's own error text — and are
+  excluded from the default run. Run them with `build.ps1 -Task Test -IncludeE2E`;
+  they skip cleanly without the SDK. CI runs them as a separate step on
+  windows-latest, which ships the SDK.
 - `build.ps1` — one entry point for `Build`, `Analyze` and `Test`, used by both
   contributors and CI so that local and CI results mean the same thing. `-CI`
   produces NUnit test results and a CSV of analyzer findings, and sets the exit code.
@@ -138,16 +123,18 @@ tests, a static-analysis configuration, and CI.
   artefacts produced by running the module in place.
 - This changelog.
 
+- Removed three private parameters that were accepted and ignored:
+  `-ValidateSchema` (`Get-AppxManifestData`), `-CreateBundle`
+  (`New-AppxPackageInternal`) and `-OutputDirectory` (`New-AppxBackupManifest`).
+  No public surface change.
+- The analyzer gate is now clean and CI blocks on warnings, not just errors. The
+  pre-existing warnings were resolved: genuinely dead variables removed,
+  discarded call results made explicit with `$null`, safe-fallback catches given
+  non-throwing acknowledgements, and the logger's deliberate silent catches
+  suppressed at function level with justification.
+
 ### Known issues
 
-- PSScriptAnalyzer reports 35 warnings that predate this release: unused variables
-  and parameters, and deliberately silent catch blocks in the logger. CI blocks on
-  errors and reports warnings without failing. See "Recommended next steps" in
-  `README.md`.
-- Four declared parameters are accepted but ignored: `-CheckCapabilities`
-  (`Test-AppxBackupCompatibility`), `-ValidateSchema` (`Get-AppxManifestData`),
-  `-CreateBundle` (`New-AppxPackageInternal`) and `-OutputDirectory`
-  (`New-AppxBackupManifest`). Only the first is on a public command.
 - PSScriptAnalyzer 1.25 raises an internal `NullReferenceException` while inspecting
   `AppxBackup.psm1` through an absolute path. Analysis still completes and returns
   the full finding set; `build.ps1` reports the condition instead of failing on it.
@@ -176,8 +163,8 @@ tests, a static-analysis configuration, and CI.
 - Initial 2.x line: ZIP-based dependency packaging (`.appxpack`) with installation
   orchestration, native certificate management, and MSIX support.
 
-[Unreleased]: https://github.com/DeltaGa/AppxBackup.Module/compare/v2.1.0...HEAD
-[2.1.0]: https://github.com/DeltaGa/AppxBackup.Module/compare/v2.0.2...v2.1.0
-[2.0.2]: https://github.com/DeltaGa/AppxBackup.Module/compare/v2.0.1...v2.0.2
-[2.0.1]: https://github.com/DeltaGa/AppxBackup.Module/compare/v2.0.0...v2.0.1
+[Unreleased]: https://github.com/DeltaGa/AppxBackup.Module/compare/v2.1.0-post1...HEAD
+[2.1.0]: https://github.com/DeltaGa/AppxBackup.Module/compare/v2.0.2-post1...v2.1.0-post1
+[2.0.2]: https://github.com/DeltaGa/AppxBackup.Module/compare/v2.0.1-post2...v2.0.2-post1
+[2.0.1]: https://github.com/DeltaGa/AppxBackup.Module/compare/v2.0.0...v2.0.1-post2
 [2.0.0]: https://github.com/DeltaGa/AppxBackup.Module/releases/tag/v2.0.0
