@@ -73,12 +73,12 @@ jobs:
         shell: pwsh
         run: pwsh -NoProfile -File ./build.ps1 -Task Build -CI
 
-      # Errors are blocking. Warnings are reported in the log and uploaded as an
-      # artefact so the backlog stays visible without turning every warning into a
-      # merge blocker. See PSScriptAnalyzerSettings.psd1 for the rules in scope.
+      # The rule set is clean, so both errors and warnings are blocking: a new
+      # finding of either severity fails the build. See
+      # PSScriptAnalyzerSettings.psd1 for the rules in scope.
       - name: Analyze
         shell: pwsh
-        run: pwsh -NoProfile -File ./build.ps1 -Task Analyze -CI -FailOn Error
+        run: pwsh -NoProfile -File ./build.ps1 -Task Analyze -CI -FailOn Warning
 
       - name: Test
         shell: pwsh
