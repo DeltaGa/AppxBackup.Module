@@ -34,10 +34,7 @@ function Get-AppxManifestData {
         [switch]$IncludeDependencies,
 
         [Parameter()]
-        [switch]$IncludeCapabilities,
-
-        [Parameter()]
-        [switch]$ValidateSchema
+        [switch]$IncludeCapabilities
     )
 
     begin {

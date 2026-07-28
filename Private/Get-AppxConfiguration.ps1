@@ -37,7 +37,7 @@ function Get-AppxConfiguration {
     [OutputType([PSCustomObject])]
     param(
         [Parameter(Mandatory, Position = 0)]
-         [ValidateSet('ToolConfiguration', 'WindowsReservedNames', 'PackageConfiguration', 'ModuleDefaults', 'ZipPackagingConfiguration')]
+         [ValidateSet('ToolConfiguration', 'WindowsReservedNames', 'PackageConfiguration', 'ModuleDefaults', 'ZipPackagingConfiguration', 'CapabilityClassification')]
          [string]$ConfigName,
 
         [Parameter()]
@@ -132,6 +132,17 @@ function Get-AppxConfiguration {
                     }
                     if (-not $config.manifestDefaults) {
                         throw "ZipPackagingConfiguration missing 'manifestDefaults' property"
+                    }
+                }
+
+                'CapabilityClassification' {
+                    foreach ($class in 'restricted', 'device', 'general') {
+                        if (-not $config.$class) {
+                            throw "CapabilityClassification missing '$class' property"
+                        }
+                        if (-not $config.$class.names) {
+                            throw "CapabilityClassification.$class missing 'names' property"
+                        }
                     }
                 }
             }

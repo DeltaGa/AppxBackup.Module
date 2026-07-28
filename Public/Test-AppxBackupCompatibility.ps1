@@ -50,6 +50,12 @@
 
 .OUTPUTS
     AppxBackup.CompatibilityResult
+    When -CheckCapabilities is supplied, also includes:
+    - CapabilitiesChecked: Boolean
+    - DeclaredCapabilities: All capabilities declared in the manifest
+    - RestrictedCapabilities: Those gated by Microsoft, which may be denied at
+      runtime for a sideloaded package
+    - DeviceCapabilities: Those requiring user consent on first use
     For .appxpack archives, includes additional properties:
     - DependencyCompatibilityResults: Per-dependency compatibility
     - PowerShellVersionCompatible: Boolean
@@ -305,7 +311,65 @@ function Test-AppxBackupCompatibility {
                 }
             }
 
-            # Check 4: Signature Status
+            # Check 4: Declared Capabilities (if requested)
+            # Capabilities were already extracted by the Get-AppxBackupInfo call above,
+            # which requests them from Get-AppxManifestData.
+            $restrictedCapabilities = @()
+            $deviceCapabilities = @()
+            $declaredCapabilities = @()
+
+            if ($CheckCapabilities.IsPresent) {
+                Write-Host "`n=== Capability Check ===" -ForegroundColor Cyan
+
+                $declaredCapabilities = @($packageInfo.Capabilities)
+
+                if ($declaredCapabilities.Count -eq 0) {
+                    Write-Host "  [INFO] Package declares no capabilities" -ForegroundColor Gray
+                }
+                else {
+                    # Classification lives in Config/CapabilityClassification.json so the
+                    # list can be updated without a code change as Windows adds entries.
+                    try {
+                        $capConfig = Get-AppxConfiguration -ConfigName 'CapabilityClassification'
+                        $restrictedNames = @($capConfig.restricted.names)
+                        $deviceNames = @($capConfig.device.names)
+                    }
+                    catch {
+                        Write-AppxLog -Message "Failed to load capability classification, treating all capabilities as general: $_" -Level 'Warning'
+                        $restrictedNames = @()
+                        $deviceNames = @()
+                    }
+
+                    # Capability names are case-sensitive in the manifest schema, but
+                    # compare case-insensitively so a malformed manifest is still classified.
+                    $restrictedCapabilities = @($declaredCapabilities | Where-Object { $restrictedNames -contains $_ })
+                    $deviceCapabilities = @($declaredCapabilities | Where-Object { $deviceNames -contains $_ })
+
+                    Write-Host "  Declared: $($declaredCapabilities.Count)" -ForegroundColor Gray
+
+                    if ($restrictedCapabilities.Count -gt 0) {
+                        Write-Host "  [WARNING]  Restricted: $($restrictedCapabilities.Count)" -ForegroundColor Yellow
+                        [void]$warnings.Add("Package declares $($restrictedCapabilities.Count) restricted capability/capabilities ($($restrictedCapabilities -join ', ')). These are gated by Microsoft: a sideloaded package may install but have them denied at runtime.")
+
+                        if ($Detailed.IsPresent) {
+                            $restrictedCapabilities | ForEach-Object { Write-Host "    - $_" -ForegroundColor Yellow }
+                        }
+                    }
+                    else {
+                        Write-Host "  [PASS] No restricted capabilities" -ForegroundColor Green
+                    }
+
+                    if ($deviceCapabilities.Count -gt 0) {
+                        Write-Host "  [INFO] Device capabilities: $($deviceCapabilities.Count) (user consent required at first use)" -ForegroundColor Gray
+
+                        if ($Detailed.IsPresent) {
+                            $deviceCapabilities | ForEach-Object { Write-Host "    - $_" -ForegroundColor Gray }
+                        }
+                    }
+                }
+            }
+
+            # Check 5: Signature Status
             Write-Host "`n=== Signature Check ===" -ForegroundColor Cyan
             
             if ($packageInfo.SignatureInfo) {
@@ -347,6 +411,10 @@ function Test-AppxBackupCompatibility {
                 Warnings                = $warnings
                 PackageFilePath         = $packagePath
                 TestDate                = [DateTime]::Now
+                CapabilitiesChecked     = $CheckCapabilities.IsPresent
+                DeclaredCapabilities    = $declaredCapabilities
+                RestrictedCapabilities  = $restrictedCapabilities
+                DeviceCapabilities      = $deviceCapabilities
             }
 
             # Summary

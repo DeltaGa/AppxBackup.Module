@@ -172,7 +172,7 @@ Describe 'Invoke-ProcessSafely' {
             InModuleScope AppxBackup -Parameters @{ Exe = $script:Cmd } {
                 param($Exe)
                 { Invoke-ProcessSafely -FilePath $Exe -ArgumentList @('/c', 'exit 3') -NoWindow -ErrorAction Stop } |
-                    Should -Throw -ExpectedMessage '*exit code 3*'
+                    Should -Throw -ExpectedMessage '*exit code 3*' -Because "$Exe exits 3"
             }
         }
 
@@ -197,7 +197,7 @@ Describe 'Invoke-ProcessSafely' {
                 param($Exe)
                 { Invoke-ProcessSafely -FilePath $Exe -ArgumentList @('/c', 'exit 0') `
                     -WorkingDirectory 'C:\no\such\dir' -ErrorAction Stop } |
-                    Should -Throw -ExpectedMessage '*Working directory not found*'
+                    Should -Throw -ExpectedMessage '*Working directory not found*' -Because "$Exe cannot start there"
             }
         }
     }

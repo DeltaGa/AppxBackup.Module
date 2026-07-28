@@ -567,8 +567,7 @@ Windows SDK is MANDATORY for reliable APPX backup operations.
                             ResourceId           = $manifestData.ResourceId
                         } `
                         -DependencyInfo $dependencyInfo.Dependencies `
-                        -PackageFiles (@($mainPackageFileEntry) + $allPackageFiles) `
-                        -OutputDirectory $bundleWorkDir
+                        -PackageFiles (@($mainPackageFileEntry) + $allPackageFiles)
                     
                     Write-AppxLog -Message "Installation manifest generated" -Level 'Debug'
                     

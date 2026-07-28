@@ -29,9 +29,6 @@
 .PARAMETER PackageFiles
     Array of hashtables with PackagePath and CertificatePath for all packages.
 
-.PARAMETER OutputDirectory
-    Directory where packages and certificates are stored (for calculating relative paths).
-
 .OUTPUTS
     [hashtable]
     Structured manifest data ready for ConvertTo-Json and ZIP inclusion.
@@ -62,12 +59,11 @@ function New-AppxBackupManifest {
         
         [Parameter(Mandatory)]
         [ValidateNotNull()]
-        [array]$PackageFiles,
-        
-        [Parameter(Mandatory)]
-        [ValidateNotNullOrEmpty()]
-        [string]$OutputDirectory
+        [array]$PackageFiles
     )
+    # Note: this function builds manifest data only. The file is written by
+    # New-AppxBackupZipArchive, which owns the archive layout, so no output
+    # directory is needed here.
     
     Write-AppxLog -Message "=== New-AppxBackupManifest ===" -Level 'Debug'
     Write-AppxLog -Message "Main Package: $($MainPackageInfo.Name) v$($MainPackageInfo.Version)" -Level 'Debug'

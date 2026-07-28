@@ -321,8 +321,7 @@ function Get-AppxpackArchiveInfo {
             $manifestFileName = $zipConfig.archiveStructure.manifestFileName
             $packagesDirName = $zipConfig.archiveStructure.packagesDirectory
             $certsDirName = $zipConfig.archiveStructure.certificatesDirectory
-            $readmeFileName = $zipConfig.archiveStructure.readmeFileName
-            
+
             Write-AppxLog -Message "Archive structure config: Manifest=$manifestFileName, Packages=$packagesDirName, Certs=$certsDirName" -Level 'Debug'
             
             # Find and extract AppxBackupManifest.json

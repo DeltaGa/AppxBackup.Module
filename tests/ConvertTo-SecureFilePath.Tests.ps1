@@ -44,7 +44,7 @@ Describe 'ConvertTo-SecureFilePath' {
             InModuleScope AppxBackup -Parameters @{ Target = $missing } {
                 param($Target)
                 { ConvertTo-SecureFilePath -Path $Target -MustExist -PathType Directory -ErrorAction Stop } |
-                    Should -Throw -ExpectedMessage '*does not exist*'
+                    Should -Throw -ExpectedMessage '*does not exist*' -Because "'$Target' is absent"
             }
         }
 
@@ -62,7 +62,7 @@ Describe 'ConvertTo-SecureFilePath' {
             InModuleScope AppxBackup -Parameters @{ Target = $file } {
                 param($Target)
                 { ConvertTo-SecureFilePath -Path $Target -MustExist -PathType Directory -ErrorAction Stop } |
-                    Should -Throw -ExpectedMessage '*is not a Directory*'
+                    Should -Throw -ExpectedMessage '*is not a Directory*' -Because "'$Target' is a file"
             }
         }
     }
@@ -100,7 +100,7 @@ Describe 'ConvertTo-SecureFilePath' {
             InModuleScope AppxBackup -Parameters @{ Target = $target } {
                 param($Target)
                 { ConvertTo-SecureFilePath -Path $Target -PathType Any -CreateIfMissing -ErrorAction Stop } |
-                    Should -Throw -ExpectedMessage "*Cannot create path of type 'Any'*"
+                    Should -Throw -ExpectedMessage "*Cannot create path of type 'Any'*" -Because "'$Target' has no determinable type"
             }
         }
 
@@ -128,7 +128,8 @@ Describe 'ConvertTo-SecureFilePath' {
         ) {
             InModuleScope AppxBackup -Parameters @{ Target = $Path; Pattern = $Expected } {
                 param($Target, $Pattern)
-                { ConvertTo-SecureFilePath -Path $Target -ErrorAction Stop } | Should -Throw -ExpectedMessage $Pattern
+                { ConvertTo-SecureFilePath -Path $Target -ErrorAction Stop } |
+                    Should -Throw -ExpectedMessage $Pattern -Because "'$Target' must be rejected"
             }
         }
 

@@ -31,9 +31,6 @@ function New-AppxPackageInternal {
         [string]$CompressionLevel = 'Normal',
 
         [Parameter()]
-        [switch]$CreateBundle,
-
-        [Parameter()]
         [switch]$ValidateManifest,
 
         [Parameter()]
@@ -115,9 +112,11 @@ function New-AppxPackageInternal {
                 [void](New-Item -Path $outputDir -ItemType Directory -Force)
             }
 
-            # Package size validation and disk space checking
+            # Package size validation and disk space checking.
+            # Called for its throw-on-insufficient-space behaviour; the returned detail
+            # is not needed here.
             try {
-                $diskSpaceResult = Test-AppxDiskSpace -SourcePath $sourcePath -OutputPath $OutputPath
+                $null = Test-AppxDiskSpace -SourcePath $sourcePath -OutputPath $OutputPath
             }
             catch {
                 Write-AppxLog -Message "Package size validation warning: $_ | Stack: $($_.ScriptStackTrace)" -Level 'Warning'
@@ -237,7 +236,8 @@ function New-AppxPackageInternal {
                 Write-AppxLog -Message "Executing: $makeAppxPath $($makeAppxArgs -join ' ')" -Level 'Debug'
                 
                 # PRE-FLIGHT DIAGNOSTICS
-                $preflightResult = Test-AppxPackagingPrerequisites -SourcePath $effectiveSourcePath -OutputPath $OutputPath
+                # Emits its findings through the log; the return value is not consumed.
+                $null = Test-AppxPackagingPrerequisites -SourcePath $effectiveSourcePath -OutputPath $OutputPath
                 
                 Write-AppxLog -Message "Pre-flight checks complete, invoking MakeAppx..." -Level 'Debug'
                 Write-AppxLog -Message "This may take several minutes for large packages..." -Level 'Verbose'
