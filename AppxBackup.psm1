@@ -11,8 +11,8 @@
 .NOTES
     Name: AppxBackup
     Author: DeltaGa
-    Version: 2.0.2
-    LastModified: 2026-02-13
+    Version: 2.1.0
+    LastModified: 2026-07-27
     
     Requires:
     - PowerShell 7.4+

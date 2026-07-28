@@ -62,7 +62,11 @@ Describe 'Invoke-ProcessSafely' {
                     Invoke-ProcessSafely -FilePath $Exe -ArgumentList @('-n', '30', '127.0.0.1') `
                         -TimeoutSeconds 2 -NoWindow -ErrorAction Stop | Out-Null
                 }
-                catch { }
+                catch {
+                    # The timeout is expected here; this test asserts on the process
+                    # table afterwards rather than on the exception.
+                    Write-Verbose "Expected timeout: $($_.Exception.Message)"
+                }
             }
 
             Start-Sleep -Milliseconds 500

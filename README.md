@@ -3,13 +3,13 @@
 [![CodeFactor](https://www.codefactor.io/repository/github/deltaga/appxbackup.module/badge)](https://www.codefactor.io/repository/github/deltaga/appxbackup.module)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-# AppxBackup PowerShell Module v2.0.2
+# AppxBackup PowerShell Module v2.1.0
 
 ## Windows Application Package Backup & Restoration Toolkit
 
-**Version:** 2.0.2  
-**Release Date:** February 13, 2026  
-**PowerShell:** 7.4+
+**Version:** 2.1.0  
+**Release Date:** July 27, 2026  
+**PowerShell:** 7.4+ (PowerShell Core only)
 
 ---
 
@@ -26,7 +26,7 @@
 - [Module Architecture](#module-architecture)
 - [Testing Infrastructure](#testing-infrastructure)
 - [Support](#support)
-- [Changelog](#changelog)
+- [Changelog](CHANGELOG.md)
 - [Citations](#citations)
 
 ---
@@ -335,6 +335,59 @@ AppxBackup.Module/
 ---
 
 ## Testing Infrastructure
+
+There are two complementary layers. The automated suite runs anywhere with no
+special privileges and gates every change; the interactive harness exercises real
+packaging against real installed applications and needs an administrator session.
+
+### Automated suite (`build.ps1`)
+
+`build.ps1` is the single entry point used by both contributors and CI, so a local
+pass and a CI pass mean the same thing.
+
+```powershell
+# Everything: manifest and import check, static analysis, then the test suite
+.\build.ps1
+
+# Individual stages
+.\build.ps1 -Task Build      # manifest validates, module imports, FileList matches disk
+.\build.ps1 -Task Analyze    # PSScriptAnalyzer using PSScriptAnalyzerSettings.psd1
+.\build.ps1 -Task Test       # Pester suite under tests/
+
+# As CI runs it: NUnit + CSV artefacts under out/, and a meaningful exit code
+.\build.ps1 -Task All -CI -FailOn Error
+```
+
+First run needs the tooling:
+
+```powershell
+Install-Module Pester -MinimumVersion 5.5.0 -Scope CurrentUser -Force -SkipPublisherCheck
+Install-Module PSScriptAnalyzer -MinimumVersion 1.21.0 -Scope CurrentUser -Force
+```
+
+The 71 tests in `tests/` concentrate on the module's trust boundaries — path
+validation, external process execution, SDK discovery, configuration loading, and
+the agreement between the manifest, the loader and the files on disk. Each defect
+fixed in 2.1.0 has a regression test. The suite is written in the subset shared by
+Pester 5 and 6.
+
+`PSScriptAnalyzerSettings.psd1` is deliberately scoped to correctness rules, and
+every exclusion states why the rule does not apply here, so a finding is always
+worth acting on. CI blocks on errors and reports warnings without failing.
+
+### Recommended next steps
+
+Known work that is tracked but not yet done:
+
+- Clear the 35 pre-existing analyzer warnings (unused variables and parameters,
+  and the logger's intentionally silent catch blocks), then tighten CI to
+  `-FailOn Warning`.
+- Either implement or remove four parameters that are accepted and ignored:
+  `-CheckCapabilities` on `Test-AppxBackupCompatibility` (the only public one),
+  and `-ValidateSchema`, `-CreateBundle` and `-OutputDirectory` on private helpers.
+- Add coverage for `Backup-AppxPackage` and `Install-AppxBackup` end to end. These
+  need the Windows SDK and a real package, so they belong behind a CI tag rather
+  than in the default run.
 
 ### Test-AppxBackupModule.ps1
 

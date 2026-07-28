@@ -1,0 +1,38 @@
+# Build and test output
+/out/
+/build/
+TestResults.xml
+AnalyzerResults.*
+coverage.xml
+
+# Module log files and rotated archives
+AppxBackup_*.log
+AppxBackup_*.log.*.archive
+*.transcript.txt
+
+# Backup artefacts produced by running the module in place
+*.appx
+*.msix
+*.appxbundle
+*.msixbundle
+*.appxpack
+*_Dependencies.json
+
+# Certificates and keys must never be committed
+*.pfx
+*.pvk
+*.snk
+*.cer
+*.crt
+*.key
+
+# Editor and OS noise
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Session scratch
+prompt.txt

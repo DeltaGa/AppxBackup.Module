@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Structured logging function with multiple output targets and severity levels.
 

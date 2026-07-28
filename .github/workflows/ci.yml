@@ -1,0 +1,94 @@
+name: CI
+
+# The module is Windows-only (Appx/MSIX, Windows SDK, certificate stores), so every
+# job runs on windows-latest. PowerShell 7.4 is the floor declared in the manifest.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify (pwsh ${{ matrix.powershell }})
+    runs-on: windows-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # 7.4 is the minimum the manifest supports; 7.5 is the current release line.
+        # Both are exercised so a regression in either is caught before release.
+        powershell: ['7.4', '7.5']
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Install PowerShell ${{ matrix.powershell }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # windows-latest ships a recent pwsh; install the pinned line side by side
+          # so the matrix genuinely tests both.
+          dotnet tool update --global PowerShell --version "${{ matrix.powershell }}.*"
+          "$env:USERPROFILE\.dotnet\tools" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+
+      - name: Report versions
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -Command '$PSVersionTable | Format-List'
+
+      - name: Cache PowerShell modules
+        uses: actions/cache@v4
+        with:
+          path: ~/Documents/PowerShell/Modules
+          key: psmodules-${{ runner.os }}-pester5-analyzer1-${{ hashFiles('build.ps1') }}
+          restore-keys: |
+            psmodules-${{ runner.os }}-
+
+      - name: Install build dependencies
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          foreach ($spec in @(
+              @{ Name = 'Pester';           MinimumVersion = '5.5.0' }
+              @{ Name = 'PSScriptAnalyzer'; MinimumVersion = '1.21.0' }
+          )) {
+              if (-not (Get-Module -ListAvailable -Name $spec.Name |
+                        Where-Object Version -ge $spec.MinimumVersion)) {
+                  Install-Module @spec -Scope CurrentUser -Force -SkipPublisherCheck -AllowClobber
+              }
+          }
+
+      - name: Build
+        shell: pwsh
+        run: pwsh -NoProfile -File ./build.ps1 -Task Build -CI
+
+      # Errors are blocking. Warnings are reported in the log and uploaded as an
+      # artefact so the backlog stays visible without turning every warning into a
+      # merge blocker. See PSScriptAnalyzerSettings.psd1 for the rules in scope.
+      - name: Analyze
+        shell: pwsh
+        run: pwsh -NoProfile -File ./build.ps1 -Task Analyze -CI -FailOn Error
+
+      - name: Test
+        shell: pwsh
+        run: pwsh -NoProfile -File ./build.ps1 -Task Test -CI
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-results-${{ matrix.powershell }}
+          path: out/
+          if-no-files-found: ignore
+          retention-days: 14

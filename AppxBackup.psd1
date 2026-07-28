@@ -1,12 +1,15 @@
-@{
+﻿@{
     # Script module or binary module file associated with this manifest.
     RootModule = 'AppxBackup.psm1'
 
     # Version number of this module.
-    ModuleVersion = '2.0.2'
+    ModuleVersion = '2.1.0'
 
     # Supported PSEditions
-    CompatiblePSEditions = @('Desktop', 'Core')
+    # Core only: the Desktop edition tops out at Windows PowerShell 5.1, which can
+    # never satisfy the PowerShellVersion = '7.4' requirement below. Advertising
+    # Desktop made the module look installable on Windows PowerShell when it is not.
+    CompatiblePSEditions = @('Core')
 
     # ID used to uniquely identify this module
     GUID = 'a3f2c8d1-9b4e-4a7c-8f6d-2e1b9c4a7f3e'
@@ -145,7 +148,15 @@ Key Features:
         'Config\ModuleDefaults.json',
         'Config\ZipPackagingConfiguration.json',
         'Examples\UsageExamples.md',
-        'Test-AppxBackupModule.ps1'
+        'Import-AppxBackup.ps1',
+        'Test-AppxBackupModule.ps1',
+        'build.ps1',
+        'PSScriptAnalyzerSettings.psd1',
+        'tests\Module.Tests.ps1',
+        'tests\ConvertTo-SecureFilePath.Tests.ps1',
+        'tests\Invoke-ProcessSafely.Tests.ps1',
+        'tests\Test-AppxToolAvailability.Tests.ps1',
+        'tests\Configuration.Tests.ps1'
     )
 
     # Private data to pass to the module specified in RootModule/ModuleToProcess
@@ -182,6 +193,83 @@ Key Features:
 
             # ReleaseNotes of this module
             ReleaseNotes = @'
+Version 2.1.0 (July 27, 2026)
+=============================
+
+RELEASE SUMMARY:
+Correctness release. Six defects are fixed in which a guard compared a boolean
+result against $null and therefore never ran, including one that could hang a
+backup indefinitely and one that corrupted every captured tool output. The
+module gains its first automated test suite, a static-analysis configuration
+and a CI pipeline.
+
+FIXED:
+
+Process execution
+- Invoke-ProcessSafely never enforced its timeout. WaitForExit([int]) returns
+  $false on timeout but was compared against $null, so the kill branch was
+  unreachable and control fell through to an unbounded WaitForExit(). A tool
+  that stopped responding blocked the caller with no recourse; MakeAppx is
+  invoked with a 1800 second timeout. Verified: a 3s timeout previously ran a
+  30s process to completion and reported success, and now aborts at 3s.
+- Invoke-ProcessSafely never detected a failed Process.Start().
+- Captured stdout and stderr were prefixed with the capture buffer's own
+  capacity ("16384" and "4096"). The buffers were built from an Int64 supplied
+  by ConvertFrom-Json, and StringBuilder has (Int32) and (String) overloads but
+  no Int64, so PowerShell bound the String one. This corrupted MakeAppx error
+  analysis and the diagnostics printed on failure.
+
+Path validation
+- ConvertTo-SecureFilePath ignored -MustExist, so a missing path produced
+  "The property 'PSIsContainer' cannot be found" from a later Get-Item instead
+  of a clear error.
+- ConvertTo-SecureFilePath ignored -CreateIfMissing, and creation was also
+  gated behind -MustExist. Backup-AppxPackage passes -CreateIfMissing alone,
+  so -OutputPath was never created.
+
+Tool discovery
+- Test-AppxToolAvailability returned a two-element array on every cache hit.
+  The cache check used return inside begin{}, which exits only that block, so
+  the cached value was emitted and the full search then emitted a second one.
+
+Diagnostics
+- Backup-AppxPackage reported "variable cannot be retrieved" in place of the
+  real failure when an error occurred before the output path was computed.
+- Write-AppxLog: removed a dead preference guard and corrected an empty-string
+  check against $null.
+
+CHANGED:
+
+- Aliases are exported module members instead of being created with
+  -Scope Global. Remove-Module now withdraws them rather than leaving them in
+  the caller's session. The four alias names are unchanged.
+- The loader discovers Public/ and Private/ from disk instead of using
+  hand-maintained ordered lists. Every file there defines only functions, so
+  load order carries no meaning. Adding a file no longer requires registering
+  it in two places.
+- CompatiblePSEditions is now Core only. Desktop tops out at Windows
+  PowerShell 5.1 and could never satisfy PowerShellVersion 7.4.
+- AppxBackup.psd1 and Write-AppxLog.ps1 contain non-ASCII characters and now
+  carry a UTF-8 BOM so they are read correctly by ANSI-defaulting hosts.
+
+ADDED:
+
+- tests/: 71 Pester tests covering path validation, process execution, tool
+  discovery, configuration loading and the manifest/loader/disk contract.
+  Written in the Pester 5 and 6 compatible subset. Every defect above has a
+  regression test.
+- build.ps1: single Build/Analyze/Test entry point shared by contributors
+  and CI, with NUnit and CSV output under -CI.
+- PSScriptAnalyzerSettings.psd1: correctness-scoped rule set; each exclusion
+  documents why the rule does not apply to this project.
+- .github/workflows/ci.yml: Windows CI across PowerShell 7.4 and 7.5.
+- .gitignore and CHANGELOG.md.
+
+COMPATIBILITY:
+- Public contract unchanged: the same 8 functions and 4 aliases.
+- Windows 10 1809+, Windows 11, Windows Server 2019+
+- PowerShell 7.4+
+
 Version 2.0.2 (February 13, 2026)
 =================================
 
