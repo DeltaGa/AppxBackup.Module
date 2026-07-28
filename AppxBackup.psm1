@@ -58,93 +58,30 @@ $script:AppxBackupConfig = @{
 
 #endregion
 
-#region Load Private Functions
+#region Load Function Files
 
-Write-Verbose "Loading private functions..."
+# Every file under Private/ and Public/ contains only function definitions, so the
+# dot-source order carries no meaning: PowerShell resolves a call target when the
+# function runs, not when it is defined. Files are therefore discovered from disk
+# rather than listed by hand, which removes a class of bug where a new file was
+# added but never registered here and silently failed to load.
 
-$privateFiles = @(
-    # Core infrastructure (no dependencies on other private functions)
-    'Get-AppxConfiguration.ps1',
-    'Get-AppxDefault.ps1',
-    'Write-AppxLog.ps1',
-    'ConvertTo-SecureFilePath.ps1',
-    'ConvertTo-HtmlEncodedString.ps1',
-    
-    # Atomic helpers (depend on core infrastructure only)
-    'Find-AppxSdkTool.ps1',
-    'Resolve-AppxManifestNode.ps1',
-    'Test-AppxDiskSpace.ps1',
-    'Test-AppxArchitectureCompatibility.ps1',
-    'Test-AppxPackagingPrerequisites.ps1',
-    'Get-AppxMakeAppxErrorAnalysis.ps1',
-    'Remove-AppxItemWithRetry.ps1',
-    'Install-AppxCertificateToStore.ps1',
-    'Copy-AppxSourceDirectory.ps1',
-    
-    # Mid-level helpers (may depend on atomic helpers)
-    'Invoke-ProcessSafely.ps1',
-    'Invoke-AppxSignTool.ps1',
-    'Test-AppxToolAvailability.ps1',
-    'Get-AppxManifestData.ps1',
-    'Resolve-AppxDependencies.ps1',
-    
-    # High-level helpers (depend on mid-level helpers)
-    'New-AppxPackageInternal.ps1',
-    'New-AppxBackupZipArchive.ps1',
-    'New-AppxBackupManifest.ps1',
-    'New-AppxDependencyCertificate.ps1'
-)
+$privateFiles = @(Get-ChildItem -LiteralPath (Join-Path $script:ModuleRoot 'Private') -Filter '*.ps1' -File -ErrorAction SilentlyContinue | Sort-Object Name)
+$publicFiles = @(Get-ChildItem -LiteralPath (Join-Path $script:ModuleRoot 'Public') -Filter '*.ps1' -File -ErrorAction SilentlyContinue | Sort-Object Name)
 
-foreach ($file in $privateFiles) {
-    $filePath = Join-Path (Join-Path $script:ModuleRoot 'Private') $file
-    
-    if (Test-Path $filePath) {
-        try {
-            . $filePath
-            Write-Verbose "Loaded: $file"
-        }
-        catch {
-            Write-Error "Failed to load private function '$file': $_"
-            throw
-        }
-    }
-    else {
-        Write-Warning "Private function file not found: $file"
-    }
+if ($publicFiles.Count -eq 0) {
+    throw "AppxBackup: no public function files found under '$(Join-Path $script:ModuleRoot 'Public')'. The module installation is incomplete."
 }
 
-#endregion
-
-#region Load Public Functions
-
-Write-Verbose "Loading public functions..."
-
-$publicFiles = @(
-    'Backup-AppxPackage.ps1',
-    'Install-AppxBackup.ps1',
-    'New-AppxBackupCertificate.ps1',
-    'Test-AppxPackageIntegrity.ps1',
-    'Get-AppxBackupInfo.ps1',
-    'Export-AppxDependencies.ps1',
-    'Get-AppxToolPath.ps1',
-    'Test-AppxBackupCompatibility.ps1'
-)
-
-foreach ($file in $publicFiles) {
-    $filePath = Join-Path (Join-Path $script:ModuleRoot 'Public') $file
-    
-    if (Test-Path $filePath) {
-        try {
-            . $filePath
-            Write-Verbose "Loaded: $file"
-        }
-        catch {
-            Write-Error "Failed to load public function '$file': $_"
-            throw
-        }
+foreach ($file in ($privateFiles + $publicFiles)) {
+    try {
+        . $file.FullName
+        Write-Verbose "Loaded: $($file.Name)"
     }
-    else {
-        Write-Warning "Public function file not found: $file"
+    catch {
+        # A function file that fails to parse leaves the module half-built, so fail
+        # the import loudly rather than exporting a partially working surface.
+        throw "Failed to load function file '$($file.Name)': $_"
     }
 }
 
@@ -178,25 +115,22 @@ catch {
 
 #region Export Module Members
 
-# Export functions (defined in manifest, but explicit export for clarity)
-$functionsToExport = @(
-    'Backup-AppxPackage',
-    'Install-AppxBackup',
-    'New-AppxBackupCertificate',
-    'Test-AppxPackageIntegrity',
-    'Get-AppxBackupInfo',
-    'Export-AppxDependencies',
-    'Get-AppxToolPath',
-    'Test-AppxBackupCompatibility'
-)
+# One public function per file under Public/, so the file names are the export list.
+# AppxBackup.psd1 still names each function explicitly and remains the authoritative
+# public contract - the manifest intersects with whatever is exported here, and the
+# test suite asserts the two agree.
+$functionsToExport = @($publicFiles | ForEach-Object { $_.BaseName })
 
 Export-ModuleMember -Function $functionsToExport
 
-# Export aliases
-Set-Alias -Name 'Backup-AppX' -Value 'Backup-AppxPackage' -Scope Global
-Set-Alias -Name 'Export-AppX' -Value 'Backup-AppxPackage' -Scope Global
-Set-Alias -Name 'Save-AppxPackage' -Value 'Backup-AppxPackage' -Scope Global
-Set-Alias -Name 'Restore-AppxPackage' -Value 'Install-AppxBackup' -Scope Global
+# Aliases are created in module scope and published via Export-ModuleMember. They were
+# previously created with -Scope Global, which wrote into the caller's session directly
+# and left them behind for any consumer that did not trigger OnRemove. Exported aliases
+# are tied to the module and are withdrawn automatically by Remove-Module.
+Set-Alias -Name 'Backup-AppX' -Value 'Backup-AppxPackage'
+Set-Alias -Name 'Export-AppX' -Value 'Backup-AppxPackage'
+Set-Alias -Name 'Save-AppxPackage' -Value 'Backup-AppxPackage'
+Set-Alias -Name 'Restore-AppxPackage' -Value 'Install-AppxBackup'
 
 Export-ModuleMember -Alias @('Backup-AppX', 'Export-AppX', 'Save-AppxPackage', 'Restore-AppxPackage')
 
@@ -213,20 +147,18 @@ $MyInvocation.MyCommand.ScriptBlock.Module.OnRemove = {
     # Clear caches
     if ($script:ToolCache) { $script:ToolCache.Clear() }
     if ($script:PackageCache) { $script:PackageCache.Clear() }
-    
-    # Remove aliases
-    Remove-Item Alias:Backup-AppX -ErrorAction SilentlyContinue
-    Remove-Item Alias:Export-AppX -ErrorAction SilentlyContinue
-    Remove-Item Alias:Save-AppxPackage -ErrorAction SilentlyContinue
-    Remove-Item Alias:Restore-AppxPackage -ErrorAction SilentlyContinue
-    
+    if ($script:ConfigCache) { $script:ConfigCache.Clear() }
+
+    # Aliases are exported module members and are withdrawn by Remove-Module itself,
+    # so there is nothing to unregister here.
+
     Write-Verbose "Module cleanup complete"
 }
 
 #endregion
 
 # Module initialization message
-Write-Verbose "AppxBackup v2.0.2 loaded successfully"
-Write-Verbose "Private functions: $($privateFiles.Count)"
-Write-Verbose "Public functions: $($publicFiles.Count)"
+Write-Verbose "AppxBackup loaded successfully"
+Write-Verbose "Private function files: $($privateFiles.Count)"
+Write-Verbose "Public function files: $($publicFiles.Count)"
 Write-Verbose "Log path: $script:LogPath"

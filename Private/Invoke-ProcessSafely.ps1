@@ -213,9 +213,14 @@ function Invoke-ProcessSafely {
             
             # StringBuilder for async output collection (thread-safe)
             # Load initial capacities from configuration for optimal memory allocation
-            $stdoutCapacity = Get-AppxDefault 'bufferSizes.stdoutBuilderInitialCapacity' -Fallback 16384
-            $stderrCapacity = Get-AppxDefault 'bufferSizes.stderrBuilderInitialCapacity' -Fallback 4096
-            
+            # The [int] casts are load-bearing. ConvertFrom-Json yields Int64, and
+            # StringBuilder offers (Int32 capacity) and (String value) but no Int64
+            # overload, so PowerShell bound the string one: every capture buffer was
+            # pre-seeded with its own capacity as text ("16384"/"4096") and that prefix
+            # was reported as tool output, corrupting all downstream error analysis.
+            $stdoutCapacity = [int](Get-AppxDefault 'bufferSizes.stdoutBuilderInitialCapacity' -Fallback 16384)
+            $stderrCapacity = [int](Get-AppxDefault 'bufferSizes.stderrBuilderInitialCapacity' -Fallback 4096)
+
             $stdoutBuilder = [System.Text.StringBuilder]::new($stdoutCapacity)
             $stderrBuilder = [System.Text.StringBuilder]::new($stderrCapacity)
             
