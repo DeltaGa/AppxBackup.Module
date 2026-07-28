@@ -116,8 +116,7 @@ function Test-AppxBackupCompatibility {
         
         # Get system information
         $osInfo = Get-CimInstance -ClassName Win32_OperatingSystem
-        $csInfo = Get-CimInstance -ClassName Win32_ComputerSystem
-        
+
         # Parse OS version
         $osVersion = [Version]$osInfo.Version
         $osBuild = [System.Environment]::OSVersion.Version.Build

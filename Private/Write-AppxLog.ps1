@@ -26,6 +26,12 @@
 #>
 
 function Write-AppxLog {
+    # This function is the module's last-resort diagnostic sink, so by design it
+    # must never throw: every catch here is an intentional silent fallback that
+    # prefers losing a log line over breaking the caller. Log its own failures
+    # through the fallback file and Write-Warning where possible.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingEmptyCatchBlock', '',
+        Justification = 'Logger is a last-resort sink that must never throw; each catch is a deliberate silent fallback.')]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory, Position = 0)]

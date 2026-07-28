@@ -60,33 +60,35 @@ function Get-AppxManifestData {
                 }
             }
             catch {
-                # Property doesn't exist
+                # Property doesn't exist - fall through to the default
+                Write-Verbose "Get-SafeProperty: '$PropertyName' not accessible: $_"
             }
-            
+
             return $DefaultValue
         }
-        
+
         # Helper function for safe attribute access
         function Get-SafeAttribute {
             param(
                 [Parameter(Mandatory)]
                 [System.Xml.XmlNode]$Node,
-                
+
                 [Parameter(Mandatory)]
                 [ValidateNotNullOrEmpty()]
                 [string]$AttributeName,
-                
+
                 [Parameter()]
                 $DefaultValue = $null
             )
-            
+
             try {
                 if ($Node -and $Node.HasAttribute($AttributeName)) {
                     return $Node.GetAttribute($AttributeName)
                 }
             }
             catch {
-                # Attribute doesn't exist
+                # Attribute doesn't exist - fall through to the default
+                Write-Verbose "Get-SafeAttribute: '$AttributeName' not accessible: $_"
             }
             
             return $DefaultValue
@@ -148,7 +150,8 @@ function Get-AppxManifestData {
                     $nsManager.AddNamespace($ns.Key, $ns.Value)
                 }
                 catch {
-                    # Namespace already exists or error - continue
+                    # Namespace already exists or could not be added - continue with the rest
+                    Write-Verbose "Namespace '$($ns.Key)' could not be registered: $_"
                 }
             }
 

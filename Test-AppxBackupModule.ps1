@@ -926,7 +926,7 @@ if ($TestInstall.IsPresent) {
     if ($testAppx -and $vanillaCer) {
         Write-Host "`n  [8a] Install-AppxBackup from .appx..." -ForegroundColor Gray
         try {
-            $installResult = Install-AppxBackup -PackagePath $testAppx `
+            $null = Install-AppxBackup -PackagePath $testAppx `
                 -CertificatePath $vanillaCer -CertStoreLocation 'CurrentUser' `
                 -Force -Confirm:$false
             Add-TestResult -TestName 'Install-AppxBackup (.appx): Executes' -Status 'PASS'
@@ -943,7 +943,7 @@ if ($TestInstall.IsPresent) {
     if ($testAppxpack) {
         Write-Host "  [8b] Install-AppxBackup from .appxpack..." -ForegroundColor Gray
         try {
-            $installZipResult = Install-AppxBackup -PackagePath $testAppxpack `
+            $null = Install-AppxBackup -PackagePath $testAppxpack `
                 -CertStoreLocation 'CurrentUser' -Force -Confirm:$false
             Add-TestResult -TestName 'Install-AppxBackup (.appxpack): Executes' -Status 'PASS'
         }
@@ -959,7 +959,7 @@ if ($TestInstall.IsPresent) {
     if ($testAppx) {
         Write-Host "  [8c] Install-AppxBackup -SkipCertificate -SkipDependencies..." -ForegroundColor Gray
         try {
-            $installSkipResult = Install-AppxBackup -PackagePath $testAppx `
+            $null = Install-AppxBackup -PackagePath $testAppx `
                 -SkipCertificate -SkipDependencies -AllowUnsigned -Force -Confirm:$false
             Add-TestResult -TestName 'Install-AppxBackup (skip cert+deps)' -Status 'PASS'
         }
@@ -972,7 +972,7 @@ if ($TestInstall.IsPresent) {
     if ($testAppx) {
         Write-Host "  [8d] Install-AppxBackup -SkipSignatureValidation -AllowUnsigned..." -ForegroundColor Gray
         try {
-            $installUnsigned = Install-AppxBackup -PackagePath $testAppx `
+            $null = Install-AppxBackup -PackagePath $testAppx `
                 -SkipSignatureValidation -AllowUnsigned -Force -Confirm:$false
             Add-TestResult -TestName 'Install-AppxBackup (allow unsigned)' -Status 'PASS'
         }
@@ -1133,7 +1133,8 @@ try {
     Stop-Transcript | Out-Null
 }
 catch {
-    # Transcript may not be running
+    # Transcript may not be running if the session failed before Start-Transcript
+    Write-Verbose "Could not stop transcript: $_"
 }
 
 Write-Host "  Transcript : $transcriptPath" -ForegroundColor Cyan

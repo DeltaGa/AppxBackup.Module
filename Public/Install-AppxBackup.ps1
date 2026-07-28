@@ -261,13 +261,11 @@ process {
             }
             
             # Get directory names from configuration
-            $packagesDirName = Get-AppxDefault 'archiveStructure.packagesDirectory' 'ZipPackagingConfiguration' 'Packages'
-            $certsDirName = Get-AppxDefault 'archiveStructure.certificatesDirectory' 'ZipPackagingConfiguration' 'Certificates'
             $manifestFileName = Get-AppxDefault 'archiveStructure.manifestFileName' 'ZipPackagingConfiguration' 'AppxBackupManifest.json'
-            
-            # Verify structure
-            $packagesDir = [System.IO.Path]::Combine($extractedPath, $packagesDirName)
-            $certsDir = [System.IO.Path]::Combine($extractedPath, $certsDirName)
+
+            # Verify structure. Package and certificate directories are validated
+            # per entry during installation rather than up front, so only the
+            # manifest's presence is checked here.
             $manifestPath = [System.IO.Path]::Combine($extractedPath, $manifestFileName)
             
             if (-not (Test-Path -LiteralPath $manifestPath)) {
@@ -585,10 +583,11 @@ process {
         if ($failedPackages.Count -gt 0) {
             Write-Host "`nFailed Packages: $($failedPackages.Count)" -ForegroundColor Yellow
             
-            # Analyze failures and provide actionable guidance
-            $appsInUse = @()
+            # Analyze failures and provide actionable guidance.
+            # Failures are categorised only as "already installed" versus not; the
+            # error type is not captured during installation, so finer categories
+            # (in use, other) cannot be distinguished here.
             $alreadyInstalled = @()
-            $otherErrors = @()
             
             foreach ($failed in $failedPackages) {
                 # Categorize failures based on error type
